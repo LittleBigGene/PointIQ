@@ -13,7 +13,7 @@ struct ContentView: View {
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
     @State private var currentMatch: Match?
     @State private var lastPoint: Point?
-    @State private var showingVoiceInput = false
+    @State private var isVoiceInputActive = false
     
     var body: some View {
         NavigationStack {
@@ -29,6 +29,7 @@ struct ContentView: View {
                 PointLoggingView(
                     currentMatch: $currentMatch,
                     lastPoint: $lastPoint,
+                    isVoiceInputActive: $isVoiceInputActive,
                     onPointLogged: { point in
                         logPoint(point)
                     },
@@ -48,40 +49,62 @@ struct ContentView: View {
             .toolbar {
                 #if os(iOS)
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        if currentMatch == nil {
-                            Button("New Match") {
-                                startNewMatch()
-                            }
-                        } else {
-                            Button("End Match") {
-                                endCurrentMatch()
-                            }
+                    HStack(spacing: 12) {
+                        // Voice input toggle
+                        Button(action: {
+                            isVoiceInputActive.toggle()
+                        }) {
+                            Image(systemName: isVoiceInputActive ? "mic.fill" : "mic")
+                                .foregroundColor(isVoiceInputActive ? .red : .primary)
                         }
-                        Button("Match History") {
-                            // TODO: Show match history
+                        
+                        // Menu
+                        Menu {
+                            if currentMatch == nil {
+                                Button("New Match") {
+                                    startNewMatch()
+                                }
+                            } else {
+                                Button("End Match") {
+                                    endCurrentMatch()
+                                }
+                            }
+                            Button("Match History") {
+                                // TODO: Show match history
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
                     }
                 }
                 #else
                 ToolbarItem(placement: .automatic) {
-                    Menu {
-                        if currentMatch == nil {
-                            Button("New Match") {
-                                startNewMatch()
-                            }
-                        } else {
-                            Button("End Match") {
-                                endCurrentMatch()
-                            }
+                    HStack(spacing: 12) {
+                        // Voice input toggle
+                        Button(action: {
+                            isVoiceInputActive.toggle()
+                        }) {
+                            Image(systemName: isVoiceInputActive ? "mic.fill" : "mic")
+                                .foregroundColor(isVoiceInputActive ? .red : .primary)
                         }
-                        Button("Match History") {
-                            // TODO: Show match history
+                        
+                        // Menu
+                        Menu {
+                            if currentMatch == nil {
+                                Button("New Match") {
+                                    startNewMatch()
+                                }
+                            } else {
+                                Button("End Match") {
+                                    endCurrentMatch()
+                                }
+                            }
+                            Button("Match History") {
+                                // TODO: Show match history
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
                     }
                 }
                 #endif
@@ -160,6 +183,7 @@ struct MatchHeaderView: View {
 struct PointLoggingView: View {
     @Binding var currentMatch: Match?
     @Binding var lastPoint: Point?
+    @Binding var isVoiceInputActive: Bool
     let onPointLogged: (Point) -> Void
     let onUndo: () -> Void
     
@@ -202,15 +226,6 @@ struct PointLoggingView: View {
                     .padding(.horizontal)
                 }
                 
-                // Voice input button (placeholder)
-                VoiceInputButton {
-                    // TODO: Implement voice recognition
-                    // For now, simulate with manual input
-                    simulateVoiceInput()
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 16)
-                
                 // Undo button
                 if lastPoint != nil {
                     Button(action: {
@@ -238,6 +253,13 @@ struct PointLoggingView: View {
         .onChange(of: selectedOutcome) { _, newValue in
             if let outcome = newValue, !currentStrokes.isEmpty {
                 submitPoint(strokes: currentStrokes, outcome: outcome)
+            }
+        }
+        .onChange(of: isVoiceInputActive) { _, isActive in
+            if isActive {
+                // TODO: Start voice recognition
+                // For now, simulate with manual input
+                simulateVoiceInput()
             }
         }
         .overlay {
@@ -312,38 +334,6 @@ struct OutcomeButton: View {
             )
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Voice Input Button
-struct VoiceInputButton: View {
-    let action: () -> Void
-    @State private var isRecording = false
-    
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: isRecording ? "mic.fill" : "mic")
-                    .font(.title2)
-                Text(isRecording ? "Recording..." : "Voice Input")
-                    .font(.headline)
-            }
-            .foregroundColor(.white)
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(Color.accentColor)
-            .cornerRadius(12)
-        }
-        .padding(.horizontal)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    isRecording = true
-                }
-                .onEnded { _ in
-                    isRecording = false
-                }
-        )
     }
 }
 
