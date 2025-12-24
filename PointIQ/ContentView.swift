@@ -43,6 +43,7 @@ struct ContentView: View {
                     RecentPointsView(points: Array(points.suffix(10)))
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .navigationTitle("PointIQ")
             .toolbar {
                 #if os(iOS)
@@ -168,66 +169,71 @@ struct PointLoggingView: View {
     @State private var confirmationEmoji = ""
     
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            // Current strokes display
-            if !currentStrokes.isEmpty {
-                HStack(spacing: 12) {
-                    ForEach(currentStrokes, id: \.self) { stroke in
-                        Text(stroke.emoji)
-                            .font(.system(size: 40))
-                    }
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Outcome selection
-            if !currentStrokes.isEmpty {
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    ForEach(Outcome.allCases, id: \.self) { outcome in
-                        OutcomeButton(
-                            outcome: outcome,
-                            isSelected: selectedOutcome == outcome
-                        ) {
-                            selectedOutcome = outcome
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer()
+                
+                // Current strokes display
+                if !currentStrokes.isEmpty {
+                    HStack(spacing: 12) {
+                        ForEach(currentStrokes, id: \.self) { stroke in
+                            Text(stroke.emoji)
+                                .font(.system(size: 40))
                         }
                     }
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .padding(.horizontal)
-            }
-            
-            // Voice input button (placeholder)
-            VoiceInputButton {
-                // TODO: Implement voice recognition
-                // For now, simulate with manual input
-                simulateVoiceInput()
-            }
-            
-            // Undo button
-            if lastPoint != nil {
-                Button(action: {
-                    onUndo()
-                    resetInput()
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.uturn.backward")
-                        Text("Undo Last Point")
+                
+                // Outcome selection
+                if !currentStrokes.isEmpty {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 12) {
+                        ForEach(Outcome.allCases, id: \.self) { outcome in
+                            OutcomeButton(
+                                outcome: outcome,
+                                isSelected: selectedOutcome == outcome
+                            ) {
+                                selectedOutcome = outcome
+                            }
+                        }
                     }
-                    .font(.headline)
-                    .foregroundColor(.red)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.red.opacity(0.1))
-                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+                
+                // Voice input button (placeholder)
+                VoiceInputButton {
+                    // TODO: Implement voice recognition
+                    // For now, simulate with manual input
+                    simulateVoiceInput()
                 }
                 .padding(.horizontal)
+                .padding(.bottom, 16)
+                
+                // Undo button
+                if lastPoint != nil {
+                    Button(action: {
+                        onUndo()
+                        resetInput()
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.uturn.backward")
+                            Text("Undo Last Point")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.red.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                }
+                
+                Spacer()
             }
-            
-            Spacer()
+            .padding(.bottom, 24)
         }
         .onChange(of: selectedOutcome) { _, newValue in
             if let outcome = newValue, !currentStrokes.isEmpty {
@@ -400,4 +406,7 @@ struct PointCard: View {
 #Preview {
     ContentView()
         .modelContainer(for: [Match.self, Point.self], inMemory: true)
+        .previewDevice("iPhone 14")
+        .previewDisplayName("iPhone 14")
+        .previewInterfaceOrientation(.portrait)
 }
