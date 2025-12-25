@@ -11,16 +11,14 @@ import SwiftData
 struct MainTabView: View {
     var body: some View {
         TabView {
-            ProfileView()
-                .tabItem {
-                    Label("Profile", systemImage: "person.circle")
-                }
-            
             ContentView()
                 .tabItem {
                     Label("Match", systemImage: "figure.table.tennis")
                 }
-            
+            ProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person.circle")
+                }
             LegendView()
                 .tabItem {
                     Label("Legend", systemImage: "info.circle")
