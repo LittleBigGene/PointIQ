@@ -21,25 +21,6 @@ struct TableTennisRules {
     /// Maximum points in a game (if deuce continues)
     static let maximumGamePoints = 30 // Safety limit
     
-    // MARK: - Match Rules
-    
-    /// Standard match format: best of X games
-    enum MatchFormat {
-        case bestOf5  // First to 3 games
-        case bestOf7  // First to 4 games
-        case bestOf3  // First to 2 games (less common)
-        case custom(gamesToWin: Int)
-        
-        var gamesToWin: Int {
-            switch self {
-            case .bestOf3: return 2
-            case .bestOf5: return 3
-            case .bestOf7: return 4
-            case .custom(let games): return games
-            }
-        }
-    }
-    
     // MARK: - Service Rules
     
     /// Service alternates every 2 points
@@ -90,39 +71,31 @@ struct TableTennisRules {
     // MARK: - Match Completion Logic
     
     /// Determines if a match is complete based on games won
+    /// Note: Matches are never automatically complete - users can reset matches at any time
     /// - Parameters:
     ///   - playerGamesWon: Number of games won by player
     ///   - opponentGamesWon: Number of games won by opponent
-    ///   - format: Match format (best of 5, 7, etc.)
-    /// - Returns: True if the match is complete
+    /// - Returns: Always returns false (matches never auto-complete)
     static func isMatchComplete(
         playerGamesWon: Int,
-        opponentGamesWon: Int,
-        format: MatchFormat = .bestOf5
+        opponentGamesWon: Int
     ) -> Bool {
-        let gamesToWin = format.gamesToWin
-        return playerGamesWon >= gamesToWin || opponentGamesWon >= gamesToWin
+        // Matches never auto-complete - users can reset whenever they want
+        return false
     }
     
     /// Determines who won the match
+    /// Note: Matches are never automatically complete - users can reset matches at any time
     /// - Parameters:
     ///   - playerGamesWon: Number of games won by player
     ///   - opponentGamesWon: Number of games won by opponent
-    ///   - format: Match format
-    /// - Returns: True if player won, false if opponent won, nil if match not complete
+    /// - Returns: Always returns nil (matches never auto-complete)
     static func matchWinner(
         playerGamesWon: Int,
-        opponentGamesWon: Int,
-        format: MatchFormat = .bestOf5
+        opponentGamesWon: Int
     ) -> Bool? {
-        guard isMatchComplete(
-            playerGamesWon: playerGamesWon,
-            opponentGamesWon: opponentGamesWon,
-            format: format
-        ) else {
-            return nil
-        }
-        return playerGamesWon > opponentGamesWon
+        // Matches never auto-complete - users can reset whenever they want
+        return nil
     }
     
     // MARK: - Service Rotation Logic

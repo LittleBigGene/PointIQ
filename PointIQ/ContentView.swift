@@ -11,10 +11,12 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
+    @AppStorage("currentMatchID") private var currentMatchIDString: String = ""
     @State private var currentMatch: Match?
     @State private var currentGame: Game?
     @State private var lastPoint: Point?
     @State private var isVoiceInputActive = false
+    @State private var showResetMatchConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -24,7 +26,13 @@ struct ContentView: View {
                     ScoreboardView(
                         match: currentMatch,
                         game: currentGame,
-                        modelContext: modelContext
+                        modelContext: modelContext,
+                        onStartNewGame: {
+                            startNewGame()
+                        },
+                        onResetMatch: {
+                            showResetMatchConfirmation = true
+                        }
                     )
                     .frame(height: geometry.size.height * 0.20)
 #if os(iOS) || os(tvOS) || os(visionOS)
@@ -135,7 +143,37 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // Start a new match if none exists
+            // Restore current match from stored ID
+            restoreCurrentMatch()
+        }
+        .onChange(of: currentMatch?.id) { _, newID in
+            // Save current match ID when it changes
+            if let id = newID {
+                currentMatchIDString = id.uuidString
+            } else {
+                currentMatchIDString = ""
+            }
+        }
+        .alert("Reset Match", isPresented: $showResetMatchConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                resetMatch()
+            }
+        } message: {
+            Text("Are you sure you want to reset the match? This will delete all games and points in the current match and start a new one.")
+        }
+    }
+    
+    private func restoreCurrentMatch() {
+        // Try to restore the current match from stored ID
+        if !currentMatchIDString.isEmpty,
+           let matchID = UUID(uuidString: currentMatchIDString),
+           let match = matches.first(where: { $0.id == matchID }),
+           match.isActive {
+            currentMatch = match
+            currentGame = match.currentGame
+        } else {
+            // No valid stored match, start a new one
             if currentMatch == nil {
                 startNewMatch()
             } else {
@@ -181,11 +219,6 @@ struct ContentView: View {
         if game.isComplete {
             endCurrentGame()
         }
-        
-        // Check if match is complete
-        if match.isComplete {
-            endCurrentMatch()
-        }
     }
     
     private func endCurrentGame() {
@@ -193,8 +226,8 @@ struct ContentView: View {
         game.endDate = Date()
         currentGame = nil
         
-        // Automatically start a new game if match is not complete
-        if let match = currentMatch, !match.isComplete {
+        // Automatically start a new game
+        if currentMatch != nil {
             startNewGame()
         }
         
@@ -207,6 +240,31 @@ struct ContentView: View {
         lastPoint = nil
         try? modelContext.save()
     }
+    
+    private func resetMatch() {
+        // Delete the current match and all its associated data
+        if let match = currentMatch {
+            // Delete all games and points (cascade should handle this, but being explicit)
+            if let games = match.games {
+                for game in games {
+                    if let points = game.points {
+                        for point in points {
+                            modelContext.delete(point)
+                        }
+                    }
+                    modelContext.delete(game)
+                }
+            }
+            modelContext.delete(match)
+            currentGame = nil
+            currentMatch = nil
+            lastPoint = nil
+            try? modelContext.save()
+            
+            // Start a new match
+            startNewMatch()
+        }
+    }
 }
 
 // MARK: - Scoreboard View (Top Section)
@@ -214,6 +272,8 @@ struct ScoreboardView: View {
     let match: Match?
     let game: Game?
     let modelContext: ModelContext
+    let onStartNewGame: () -> Void
+    let onResetMatch: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -237,12 +297,17 @@ struct ScoreboardView: View {
                             .onEnded { value in
                                 let verticalMovement = value.translation.height
                                 if abs(verticalMovement) > abs(value.translation.width) {
-                                    if verticalMovement < 0 {
-                                        // Swipe up - increase score
-                                        increasePlayerScore(game: game, match: match)
+                                    if game.isComplete {
+                                        // Game is complete - end game and start new one
+                                        resetGame(game: game, match: match)
                                     } else {
-                                        // Swipe down - decrease score
-                                        decreasePlayerScore(game: game, match: match)
+                                        if verticalMovement < 0 {
+                                            // Swipe up - increase score
+                                            increasePlayerScore(game: game, match: match)
+                                        } else {
+                                            // Swipe down - decrease score
+                                            decreasePlayerScore(game: game, match: match)
+                                        }
                                     }
                                 }
                             }
@@ -288,6 +353,21 @@ struct ScoreboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
                     .background(Color.secondary.opacity(0.1))
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                let horizontalMovement = value.translation.width
+                                let verticalMovement = value.translation.height
+                                // Swipe left or right to reset match (only if match has games)
+                                if abs(horizontalMovement) > abs(verticalMovement) && abs(horizontalMovement) > 50 {
+                                    // Only reset if match counter is not 0:0
+                                    if match.gamesWon > 0 || match.gamesLost > 0 {
+                                        onResetMatch()
+                                    }
+                                }
+                            }
+                    )
                     
                     // Column 3: OPP Game Points
                     VStack(spacing: 8) {
@@ -314,12 +394,17 @@ struct ScoreboardView: View {
                             .onEnded { value in
                                 let verticalMovement = value.translation.height
                                 if abs(verticalMovement) > abs(value.translation.width) {
-                                    if verticalMovement < 0 {
-                                        // Swipe up - increase opponent score
-                                        increaseOpponentScore(game: game, match: match)
+                                    if game.isComplete {
+                                        // Game is complete - end game and start new one
+                                        resetGame(game: game, match: match)
                                     } else {
-                                        // Swipe down - decrease opponent score
-                                        decreaseOpponentScore(game: game, match: match)
+                                        if verticalMovement < 0 {
+                                            // Swipe up - increase opponent score
+                                            increaseOpponentScore(game: game, match: match)
+                                        } else {
+                                            // Swipe down - decrease opponent score
+                                            decreaseOpponentScore(game: game, match: match)
+                                        }
                                     }
                                 }
                             }
@@ -339,6 +424,26 @@ struct ScoreboardView: View {
     }
     
     // MARK: - Score Adjustment Functions
+    
+    private func resetGame(game: Game, match: Match) {
+        // If game is complete, end it and start a new game
+        if game.isComplete {
+            // Mark current game as complete
+            game.endDate = Date()
+            try? modelContext.save()
+            
+            // Start a new game
+            onStartNewGame()
+        } else {
+            // If game is not complete, just delete all points to reset to 0:0
+            if let points = game.points {
+                for point in points {
+                    modelContext.delete(point)
+                }
+                try? modelContext.save()
+            }
+        }
+    }
     
     private func increasePlayerScore(game: Game, match: Match) {
         let point = Point(

@@ -17,22 +17,19 @@ final class Match {
     @Relationship(deleteRule: .cascade, inverse: \Game.match) var games: [Game]?
     var opponentName: String?
     var notes: String?
-    var matchFormat: String // Store as string: "bestOf5", "bestOf7", etc.
     
     init(
         id: UUID = UUID(),
         startDate: Date = Date(),
         endDate: Date? = nil,
         opponentName: String? = nil,
-        notes: String? = nil,
-        matchFormat: String = "bestOf5"
+        notes: String? = nil
     ) {
         self.id = id
         self.startDate = startDate
         self.endDate = endDate
         self.opponentName = opponentName
         self.notes = notes
-        self.matchFormat = matchFormat
     }
     
     var isActive: Bool {
@@ -65,28 +62,17 @@ final class Match {
     
     // MARK: - Match Rules Logic
     
-    var format: TableTennisRules.MatchFormat {
-        switch matchFormat {
-        case "bestOf3": return .bestOf3
-        case "bestOf7": return .bestOf7
-        case "bestOf5": return .bestOf5
-        default: return .bestOf5
-        }
-    }
-    
     var isComplete: Bool {
         TableTennisRules.isMatchComplete(
             playerGamesWon: gamesWon,
-            opponentGamesWon: gamesLost,
-            format: format
+            opponentGamesWon: gamesLost
         )
     }
     
     var winner: Bool? {
         TableTennisRules.matchWinner(
             playerGamesWon: gamesWon,
-            opponentGamesWon: gamesLost,
-            format: format
+            opponentGamesWon: gamesLost
         )
     }
 }
