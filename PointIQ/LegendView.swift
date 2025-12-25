@@ -8,24 +8,58 @@
 import SwiftUI
 
 struct LegendView: View {
+    @State private var isServeExpanded = true
+    @State private var isBackhandExpanded = true
+    @State private var isForehandExpanded = true
+    @State private var isOutcomesExpanded = true
+    @State private var isGameRulesExpanded = true
+    
+    private var allExpanded: Bool {
+        isServeExpanded && isBackhandExpanded && isForehandExpanded && isOutcomesExpanded && isGameRulesExpanded
+    }
+    
+    private func toggleAllPanels() {
+        let shouldExpand = !allExpanded
+        isServeExpanded = shouldExpand
+        isBackhandExpanded = shouldExpand
+        isForehandExpanded = shouldExpand
+        isOutcomesExpanded = shouldExpand
+        isGameRulesExpanded = shouldExpand
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Stroke Tokens Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Stroke Tokens")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                    // Serve Section
+                    DisclosureGroup(isExpanded: $isServeExpanded) {
+                        // General Serve token
+                        HStack(spacing: 16) {
+                            Text(StrokeToken.vegetable.emoji)
+                                .font(.system(size: 32))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(StrokeToken.vegetable.displayName)
+                                    .font(.headline)
+                                Text(StrokeToken.vegetable.rawValue.capitalized)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
                         
-                        ForEach(StrokeToken.allCases, id: \.self) { stroke in
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        // Serve Types
+                        ForEach(ServiceType.allCases, id: \.self) { serviceType in
                             HStack(spacing: 16) {
-                                Text(stroke.emoji)
+                                Text(serviceType.emoji)
                                     .font(.system(size: 32))
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(stroke.displayName)
+                                    Text(serviceType.displayName)
                                         .font(.headline)
-                                    Text(stroke.rawValue.capitalized)
+                                    Text(serviceType.vegetableName)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -33,17 +67,65 @@ struct LegendView: View {
                             }
                             .padding(.vertical, 8)
                         }
+                    } label: {
+                        Text("Serve")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    // Backhand Section
+                    DisclosureGroup(isExpanded: $isBackhandExpanded) {
+                        HStack(spacing: 16) {
+                            Text(StrokeToken.fruit.emoji)
+                                .font(.system(size: 32))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(StrokeToken.fruit.displayName)
+                                    .font(.headline)
+                                Text(StrokeToken.fruit.rawValue.capitalized)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    } label: {
+                        Text("Backhand")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    // Forehand Section
+                    DisclosureGroup(isExpanded: $isForehandExpanded) {
+                        HStack(spacing: 16) {
+                            Text(StrokeToken.protein.emoji)
+                                .font(.system(size: 32))
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(StrokeToken.protein.displayName)
+                                    .font(.headline)
+                                Text(StrokeToken.protein.rawValue.capitalized)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    } label: {
+                        Text("Forehand")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                     
                     // Outcomes Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Outcomes")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
+                    DisclosureGroup(isExpanded: $isOutcomesExpanded) {
                         ForEach(Outcome.allCases, id: \.self) { outcome in
                             HStack(spacing: 16) {
                                 Text(outcome.emoji)
@@ -59,17 +141,17 @@ struct LegendView: View {
                             }
                             .padding(.vertical, 8)
                         }
+                    } label: {
+                        Text("Outcomes")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                     
                     // Game Rules Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Game Rules")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
+                    DisclosureGroup(isExpanded: $isGameRulesExpanded) {
                         VStack(alignment: .leading, spacing: 8) {
                             RuleRow(
                                 title: "Points to Win",
@@ -81,9 +163,13 @@ struct LegendView: View {
                             )
                             RuleRow(
                                 title: "Deuce",
-                                description: "At 10-10, service alternates every point"
+                                description: "At 10-10, serve alternates every point"
                             )
                         }
+                    } label: {
+                        Text("Game Rules")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
@@ -91,7 +177,19 @@ struct LegendView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Legend")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Button(action: {
+                        toggleAllPanels()
+                    }) {
+                        Text("Legend")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
         }
     }
 }

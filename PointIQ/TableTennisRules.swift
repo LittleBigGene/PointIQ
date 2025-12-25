@@ -21,12 +21,12 @@ struct TableTennisRules {
     /// Maximum points in a game (if deuce continues)
     static let maximumGamePoints = 30 // Safety limit
     
-    // MARK: - Service Rules
+    // MARK: - Serve Rules
     
-    /// Service alternates every 2 points
+    /// Serve alternates every 2 points
     static let serviceRotationPoints = 2
     
-    /// At deuce (10-10), service alternates every point
+    /// At deuce (10-10), serve alternates every point
     static let deuceThreshold = 10
     
     // MARK: - Game Completion Logic
@@ -98,12 +98,12 @@ struct TableTennisRules {
         return nil
     }
     
-    // MARK: - Service Rotation Logic
+    // MARK: - Serve Rotation Logic
     
-    /// Determines if service should rotate based on total points played
+    /// Determines if serve should rotate based on total points played
     /// - Parameter totalPoints: Total points played in the current game
     /// - Parameter isDeuce: Whether the game is at deuce (10-10)
-    /// - Returns: True if service should rotate
+    /// - Returns: True if serve should rotate
     static func shouldRotateService(totalPoints: Int, isDeuce: Bool) -> Bool {
         if isDeuce {
             // At deuce, rotate every point
