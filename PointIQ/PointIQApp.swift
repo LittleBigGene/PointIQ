@@ -13,6 +13,7 @@ struct PointIQApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Match.self,
+            Game.self,
             Point.self,
         ])
         let modelConfiguration = ModelConfiguration(

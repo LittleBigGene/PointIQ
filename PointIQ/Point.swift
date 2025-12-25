@@ -14,17 +14,20 @@ final class Point {
     var strokeTokens: [StrokeToken]
     var outcome: Outcome
     var match: Match?
+    var game: Game?
     
     init(
         timestamp: Date = Date(),
         strokeTokens: [StrokeToken] = [],
         outcome: Outcome,
-        match: Match? = nil
+        match: Match? = nil,
+        game: Game? = nil
     ) {
         self.timestamp = timestamp
         self.strokeTokens = strokeTokens
         self.outcome = outcome
         self.match = match
+        self.game = game
     }
     
     /// JSON-like representation for analytics
