@@ -18,7 +18,7 @@ struct MainTabView: View {
             
             ContentView()
                 .tabItem {
-                    Label("Match", systemImage: "sportscourt")
+                    Label("Match", systemImage: "figure.table.tennis")
                 }
             
             LegendView()
