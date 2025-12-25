@@ -23,9 +23,10 @@ struct ContentView: View {
                     // Top Section: Official Scoreboard
                     ScoreboardView(
                         match: currentMatch,
-                        game: currentGame
+                        game: currentGame,
+                        modelContext: modelContext
                     )
-                    .frame(height: geometry.size.height * 0.35)
+                    .frame(height: geometry.size.height * 0.20)
 #if os(iOS) || os(tvOS) || os(visionOS)
                     .background(Color(UIColor.systemBackground))
 #elseif os(macOS)
@@ -41,7 +42,7 @@ struct ContentView: View {
                         match: currentMatch,
                         game: currentGame
                     )
-                    .frame(height: geometry.size.height * 0.30)
+                    .frame(height: geometry.size.height * 0.45)
                     .background(Color.secondary.opacity(0.05))
                     
                     Divider()
@@ -212,115 +213,117 @@ struct ContentView: View {
 struct ScoreboardView: View {
     let match: Match?
     let game: Game?
+    let modelContext: ModelContext
     
     var body: some View {
         VStack(spacing: 0) {
             if let match = match, let game = game {
-                // Match Score Header
-                HStack {
-                    Spacer()
-                    VStack(spacing: 4) {
+                // Single row with 3 columns: Game Points (YOU) | Match Games | Game Points (OPP)
+                HStack(spacing: 0) {
+                    // Column 1: YOU Game Points
+                    VStack(spacing: 8) {
+                        Text("YOU")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text("\(game.pointsWon)")
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundColor(game.isComplete && game.winner == true ? .green : .primary)                        
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                let verticalMovement = value.translation.height
+                                if abs(verticalMovement) > abs(value.translation.width) {
+                                    if verticalMovement < 0 {
+                                        // Swipe up - increase score
+                                        increasePlayerScore(game: game, match: match)
+                                    } else {
+                                        // Swipe down - decrease score
+                                        decreasePlayerScore(game: game, match: match)
+                                    }
+                                }
+                            }
+                    )
+                    
+                    // Column 2: Match Games Counter
+                    VStack(spacing: 8) {
                         Text("MATCH")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.secondary)
-                        HStack(spacing: 20) {
-                            // Player Games
-                            VStack(spacing: 2) {
-                                Text("YOU")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                Text("\(match.gamesWon)")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundColor(match.isComplete && match.winner == true ? .green : .primary)
-                            }
-                            
+                        HStack(spacing: 16) {
+                            Text("\(match.gamesWon)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(match.isComplete && match.winner == true ? .green : .primary)
                             Text(":")
-                                .font(.system(size: 24, weight: .light))
+                                .font(.system(size: 32, weight: .light))
                                 .foregroundColor(.secondary)
-                            
-                            // Opponent Games
-                            VStack(spacing: 2) {
-                                Text("OPP")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                Text("\(match.gamesLost)")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundColor(match.isComplete && match.winner == false ? .red : .primary)
-                            }
+                            Text("\(match.gamesLost)")
+                                .font(.system(size: 40, weight: .bold, design: .rounded))
+                                .foregroundColor(match.isComplete && match.winner == false ? .red : .primary)
                         }
-                    }
-                    Spacer()
-                }
-                .padding(.vertical, 12)
-                .background(Color.secondary.opacity(0.1))
-                
-                Divider()
-                
-                // Current Game Score
-                HStack {
-                    Spacer()
-                    VStack(spacing: 4) {
-                        Text("GAME \(game.gameNumber)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.secondary)
-                        
-                        HStack(spacing: 30) {
-                            // Player Points
-                            VStack(spacing: 2) {
-                                Text("YOU")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                Text("\(game.pointsWon)")
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .foregroundColor(game.isComplete && game.winner == true ? .green : .primary)
-                            }
-                            
-                            Text(":")
-                                .font(.system(size: 36, weight: .light))
-                                .foregroundColor(.secondary)
-                            
-                            // Opponent Points
-                            VStack(spacing: 2) {
-                                Text("OPP")
-                                    .font(.system(size: 9, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                Text("\(game.pointsLost)")
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .foregroundColor(game.isComplete && game.winner == false ? .red : .primary)
-                            }
-                        }
-                        
                         // Status indicator
                         if game.isComplete {
                             Text(game.winner == true ? "GAME WON" : "GAME LOST")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(game.winner == true ? .green : .red)
-                                .padding(.top, 4)
                         } else if game.isDeuce {
                             Text("DEUCE")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(.orange)
-                                .padding(.top, 4)
                         } else {
                             let status = game.statusMessage
                             if status == "Game Point" {
                                 Text("GAME POINT")
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundColor(.orange)
-                                    .padding(.top, 4)
+                            } else {
+                                Text(" ")
+                                    .font(.system(size: 10))
                             }
                         }
                     }
-                    Spacer()
-                }
-                .padding(.vertical, 16)
-                
-                // Opponent name if set
-                if let opponent = match.opponentName {
-                    Text(opponent.uppercased())
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .padding(.top, 4)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(Color.secondary.opacity(0.1))
+                    
+                    // Column 3: OPP Game Points
+                    VStack(spacing: 8) {
+                        Text("OPP")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Text("\(game.pointsLost)")
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundColor(game.isComplete && game.winner == false ? .red : .primary)
+                        if let opponent = match.opponentName {
+                            Text(opponent.uppercased())
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text(" ")
+                                .font(.system(size: 10))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                let verticalMovement = value.translation.height
+                                if abs(verticalMovement) > abs(value.translation.width) {
+                                    if verticalMovement < 0 {
+                                        // Swipe up - increase opponent score
+                                        increaseOpponentScore(game: game, match: match)
+                                    } else {
+                                        // Swipe down - decrease opponent score
+                                        decreaseOpponentScore(game: game, match: match)
+                                    }
+                                }
+                            }
+                    )
                 }
             } else {
                 VStack {
@@ -334,6 +337,52 @@ struct ScoreboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+    
+    // MARK: - Score Adjustment Functions
+    
+    private func increasePlayerScore(game: Game, match: Match) {
+        let point = Point(
+            strokeTokens: [],
+            outcome: .winner,
+            match: match,
+            game: game
+        )
+        modelContext.insert(point)
+        try? modelContext.save()
+    }
+    
+    private func decreasePlayerScore(game: Game, match: Match) {
+        // Find and remove the most recent point with outcome .winner
+        if let points = game.points {
+            let winnerPoints = points.filter { $0.outcome == .winner }
+            if let lastWinnerPoint = winnerPoints.sorted(by: { $0.timestamp > $1.timestamp }).first {
+                modelContext.delete(lastWinnerPoint)
+                try? modelContext.save()
+            }
+        }
+    }
+    
+    private func increaseOpponentScore(game: Game, match: Match) {
+        let point = Point(
+            strokeTokens: [],
+            outcome: .opponentWinner,
+            match: match,
+            game: game
+        )
+        modelContext.insert(point)
+        try? modelContext.save()
+    }
+    
+    private func decreaseOpponentScore(game: Game, match: Match) {
+        // Find and remove the most recent point with outcome .opponentWinner
+        if let points = game.points {
+            let opponentPoints = points.filter { $0.outcome == .opponentWinner }
+            if let lastOpponentPoint = opponentPoints.sorted(by: { $0.timestamp > $1.timestamp }).first {
+                modelContext.delete(lastOpponentPoint)
+                try? modelContext.save()
+            }
+        }
+    }
 }
 
 // MARK: - Point History View (Middle Section)
@@ -342,24 +391,24 @@ struct PointHistoryView: View {
     let game: Game?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Point History")
                     .font(.headline)
                     .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.top, 4)
                 Spacer()
             }
             
             if let game = game, let points = game.points, !points.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(points.reversed()), id: \.id) { point in
-                            PointHistoryCard(point: point)
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(points.sorted(by: { $0.timestamp > $1.timestamp })), id: \.uniqueID) { point in
+                            PointHistoryRow(point: point)
                         }
                     }
-                    .padding(.horizontal)
                 }
+                .frame(maxHeight: .infinity)
             } else {
                 HStack {
                     Spacer()
@@ -369,51 +418,63 @@ struct PointHistoryView: View {
                         .padding()
                     Spacer()
                 }
+                .frame(maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-// MARK: - Point History Card
-struct PointHistoryCard: View {
+// MARK: - Point History Row
+struct PointHistoryRow: View {
     let point: Point
     
     var body: some View {
-        VStack(spacing: 6) {
-            // Strokes
-            HStack(spacing: 4) {
-                ForEach(point.strokeTokens, id: \.self) { stroke in
-                    Text(stroke.emoji)
-                        .font(.system(size: 16))
-                }
-            }
-            
-            // Outcome
+        HStack(spacing: 12) {
+            // Outcome emoji
             Text(point.outcome.emoji)
                 .font(.system(size: 24))
+                .frame(width: 40)
+            
+            // Strokes
+            if !point.strokeTokens.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(point.strokeTokens, id: \.self) { stroke in
+                        Text(stroke.emoji)
+                            .font(.system(size: 18))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("—")
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
+            // Outcome name
+            Text(point.outcome.displayName)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+                .frame(width: 120, alignment: .trailing)
             
             // Time
             Text(point.timestamp, style: .time)
-                .font(.system(size: 8))
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
+                .frame(width: 80, alignment: .trailing)
         }
-        .padding(10)
-        .frame(width: 70)
+        .padding(.horizontal)
+        .padding(.vertical, 12)
         .background(
-            point.outcome == .winner ? Color.green.opacity(0.15) :
-            point.outcome == .opponentWinner ? Color.red.opacity(0.15) :
-            Color.secondary.opacity(0.1)
+            point.outcome == .winner ? Color.green.opacity(0.08) :
+            point.outcome == .opponentWinner ? Color.red.opacity(0.08) :
+            Color.clear
         )
-        .cornerRadius(8)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    point.outcome == .winner ? Color.green.opacity(0.3) :
-                    point.outcome == .opponentWinner ? Color.red.opacity(0.3) :
-                    Color.clear,
-                    lineWidth: 1
-                )
+            Rectangle()
+                .frame(height: 1)
+                .foregroundColor(Color.secondary.opacity(0.1)),
+            alignment: .bottom
         )
     }
 }
@@ -608,3 +669,4 @@ struct ConfirmationOverlay: View {
     ContentView()
         .modelContainer(for: [Match.self, Game.self, Point.self], inMemory: true)
 }
+

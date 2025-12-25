@@ -38,6 +38,11 @@ final class Point {
             "outcome": outcome.rawValue
         ]
     }
+    
+    /// Unique identifier for SwiftUI ForEach
+    var uniqueID: String {
+        "\(timestamp.timeIntervalSince1970)-\(outcome.rawValue)-\(strokeTokens.map { $0.rawValue }.joined(separator: ","))"
+    }
 }
 
 
