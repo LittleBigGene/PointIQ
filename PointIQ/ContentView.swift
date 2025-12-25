@@ -71,76 +71,6 @@ struct ContentView: View {
                     .frame(height: geometry.size.height * 0.35)
                 }
             }
-            .navigationTitle("PointIQ")
-            .toolbar {
-                #if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 12) {
-                        // Voice input toggle
-                        Button(action: {
-                            isVoiceInputActive.toggle()
-                        }) {
-                            Image(systemName: isVoiceInputActive ? "mic.fill" : "mic")
-                                .foregroundColor(isVoiceInputActive ? .red : .primary)
-                        }
-                        
-                        // Menu
-                        Menu {
-                            if currentMatch == nil {
-                                Button("New Match") {
-                                    startNewMatch()
-                                }
-                            } else {
-                                Button("End Match") {
-                                    endCurrentMatch()
-                                }
-                                Button("New Game") {
-                                    startNewGame()
-                                }
-                            }
-                            Button("Match History") {
-                                // TODO: Show match history
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                    }
-                }
-                #else
-                ToolbarItem(placement: .automatic) {
-                    HStack(spacing: 12) {
-                        // Voice input toggle
-                        Button(action: {
-                            isVoiceInputActive.toggle()
-                        }) {
-                            Image(systemName: isVoiceInputActive ? "mic.fill" : "mic")
-                                .foregroundColor(isVoiceInputActive ? .red : .primary)
-                        }
-                        
-                        // Menu
-                        Menu {
-                            if currentMatch == nil {
-                                Button("New Match") {
-                                    startNewMatch()
-                                }
-                            } else {
-                                Button("End Match") {
-                                    endCurrentMatch()
-                                }
-                                Button("New Game") {
-                                    startNewGame()
-                                }
-                            }
-                            Button("Match History") {
-                                // TODO: Show match history
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                        }
-                    }
-                }
-                #endif
-            }
         }
         .onAppear {
             // Restore current match from stored ID
@@ -771,7 +701,7 @@ struct ConfirmationOverlay: View {
 }
 
 #Preview(traits: .portrait) {
-    ContentView()
+    MainTabView()
         .modelContainer(for: [Match.self, Game.self, Point.self], inMemory: true)
 }
 
