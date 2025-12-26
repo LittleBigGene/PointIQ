@@ -24,7 +24,7 @@ struct TableTennisRules {
     // MARK: - Serve Rules
     
     /// Serve alternates every 2 points
-    static let serviceRotationPoints = 2
+    static let serveRotationPoints = 2
     
     /// At deuce (10-10), serve alternates every point
     static let deuceThreshold = 10
@@ -104,13 +104,13 @@ struct TableTennisRules {
     /// - Parameter totalPoints: Total points played in the current game
     /// - Parameter isDeuce: Whether the game is at deuce (10-10)
     /// - Returns: True if serve should rotate
-    static func shouldRotateService(totalPoints: Int, isDeuce: Bool) -> Bool {
+    static func shouldRotateServe(totalPoints: Int, isDeuce: Bool) -> Bool {
         if isDeuce {
             // At deuce, rotate every point
             return totalPoints % 2 == 0
         } else {
             // Normal play, rotate every 2 points
-            return totalPoints % serviceRotationPoints == 0
+            return totalPoints % serveRotationPoints == 0
         }
     }
     

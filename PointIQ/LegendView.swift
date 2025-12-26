@@ -52,14 +52,14 @@ struct LegendView: View {
                             .padding(.vertical, 4)
                         
                         // Serve Types
-                        ForEach(ServiceType.allCases, id: \.self) { serviceType in
+                        ForEach(ServeType.allCases, id: \.self) { serveType in
                             HStack(spacing: 16) {
-                                Text(serviceType.emoji)
+                                Text(serveType.emoji)
                                     .font(.system(size: 32))
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(serviceType.displayName)
+                                    Text(serveType.displayName)
                                         .font(.headline)
-                                    Text(serviceType.vegetableName)
+                                    Text(serveType.vegetableName)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -78,6 +78,7 @@ struct LegendView: View {
                     
                     // Backhand Section
                     DisclosureGroup(isExpanded: $isBackhandExpanded) {
+                        // General Backhand token
                         HStack(spacing: 16) {
                             Text(StrokeToken.fruit.emoji)
                                 .font(.system(size: 32))
@@ -91,6 +92,32 @@ struct LegendView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        // Backhand Types
+                        ForEach(BackhandType.allCases, id: \.self) { backhandType in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 16) {
+                                    Text(backhandType.emoji)
+                                        .font(.system(size: 32))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("\(backhandType.displayName) / \(backhandType.spinType)")
+                                            .font(.headline)
+                                        Text(backhandType.fruitName)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                Text(backhandType.whyItWorks)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.leading, 48)
+                            }
+                            .padding(.vertical, 8)
+                        }
                     } label: {
                         Text("Backhand")
                             .font(.title2)
