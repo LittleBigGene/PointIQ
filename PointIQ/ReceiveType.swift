@@ -1,5 +1,5 @@
 //
-//  BackhandType.swift
+//  ReceiveType.swift
 //  PointIQ
 //
 //  Created by Jin Cai on 12/24/25.
@@ -7,8 +7,8 @@
 
 import Foundation
 
-/// Table tennis backhand stroke types with fruit mnemonic tokens
-enum BackhandType: String, Codable, CaseIterable {
+/// Table tennis receive stroke types with fruit mnemonic tokens
+enum ReceiveType: String, Codable, CaseIterable {
     case chopBlock = "chop_block"
     case flick = "flick"
     case reverseFlick = "reverse_flick"
@@ -39,9 +39,9 @@ enum BackhandType: String, Codable, CaseIterable {
     
     var spinType: String {
         switch self {
-        case .chopBlock: return "Underspin / sidespin / absorb"
-        case .flick: return "Topspin / sidespin"
-        case .reverseFlick: return "Topspin / sidespin"
+        case .chopBlock: return "Underspin / Sidespin / Absorb"
+        case .flick: return "Topspin / Sidespin"
+        case .reverseFlick: return "Topspin / Sidespin"
         }
     }
     

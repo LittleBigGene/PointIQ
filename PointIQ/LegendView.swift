@@ -9,20 +9,20 @@ import SwiftUI
 
 struct LegendView: View {
     @State private var isServeExpanded = true
-    @State private var isBackhandExpanded = true
-    @State private var isForehandExpanded = true
+    @State private var isReceiveExpanded = true
+    @State private var isRallyExpanded = true
     @State private var isOutcomesExpanded = true
     @State private var isGameRulesExpanded = true
     
     private var allExpanded: Bool {
-        isServeExpanded && isBackhandExpanded && isForehandExpanded && isOutcomesExpanded && isGameRulesExpanded
+        isServeExpanded && isReceiveExpanded && isRallyExpanded && isOutcomesExpanded && isGameRulesExpanded
     }
     
     private func toggleAllPanels() {
         let shouldExpand = !allExpanded
         isServeExpanded = shouldExpand
-        isBackhandExpanded = shouldExpand
-        isForehandExpanded = shouldExpand
+        isReceiveExpanded = shouldExpand
+        isRallyExpanded = shouldExpand
         isOutcomesExpanded = shouldExpand
         isGameRulesExpanded = shouldExpand
     }
@@ -76,9 +76,9 @@ struct LegendView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                     
-                    // Backhand Section
-                    DisclosureGroup(isExpanded: $isBackhandExpanded) {
-                        // General Backhand token
+                    // Receive Section
+                    DisclosureGroup(isExpanded: $isReceiveExpanded) {
+                        // General Receive token
                         HStack(spacing: 16) {
                             Text(StrokeToken.fruit.emoji)
                                 .font(.system(size: 32))
@@ -96,22 +96,22 @@ struct LegendView: View {
                         Divider()
                             .padding(.vertical, 4)
                         
-                        // Backhand Types
-                        ForEach(BackhandType.allCases, id: \.self) { backhandType in
+                        // Receive Types
+                        ForEach(ReceiveType.allCases, id: \.self) { receiveType in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 16) {
-                                    Text(backhandType.emoji)
+                                    Text(receiveType.emoji)
                                         .font(.system(size: 32))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(backhandType.displayName) / \(backhandType.spinType)")
+                                        Text("\(receiveType.displayName) / \(receiveType.spinType)")
                                             .font(.headline)
-                                        Text(backhandType.fruitName)
+                                        Text(receiveType.fruitName)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Spacer()
                                 }
-                                Text(backhandType.whyItWorks)
+                                Text(receiveType.whyItWorks)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .padding(.leading, 48)
@@ -119,7 +119,7 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Backhand")
+                        Text("Receive")
                             .font(.title2)
                             .fontWeight(.bold)
                     }
@@ -127,16 +127,16 @@ struct LegendView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                     
-                    // Forehand Section
-                    DisclosureGroup(isExpanded: $isForehandExpanded) {
-                        // General Forehand token
+                    // Rally Section
+                    DisclosureGroup(isExpanded: $isRallyExpanded) {
+                        // General Rally token
                         HStack(spacing: 16) {
-                            Text(StrokeToken.protein.emoji)
+                            Text(StrokeToken.animal.emoji)
                                 .font(.system(size: 32))
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(StrokeToken.protein.displayName)
+                                Text(StrokeToken.animal.displayName)
                                     .font(.headline)
-                                Text(StrokeToken.protein.rawValue.capitalized)
+                                Text(StrokeToken.animal.rawValue.capitalized)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -147,22 +147,22 @@ struct LegendView: View {
                         Divider()
                             .padding(.vertical, 4)
                         
-                        // Forehand Types
-                        ForEach(ForehandType.allCases, id: \.self) { forehandType in
+                        // Rally Types
+                        ForEach(RallyType.allCases, id: \.self) { rallyType in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 16) {
-                                    Text(forehandType.emoji)
+                                    Text(rallyType.emoji)
                                         .font(.system(size: 32))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(forehandType.displayName) / \(forehandType.spinType)")
+                                        Text("\(rallyType.displayName) / \(rallyType.spinType)")
                                             .font(.headline)
-                                        Text(forehandType.proteinName)
+                                        Text(rallyType.animalName)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Spacer()
                                 }
-                                Text(forehandType.whyItWorks)
+                                Text(rallyType.whyItWorks)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .padding(.leading, 48)
@@ -170,7 +170,7 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Forehand")
+                        Text("Rally")
                             .font(.title2)
                             .fontWeight(.bold)
                     }

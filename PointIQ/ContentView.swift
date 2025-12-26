@@ -630,7 +630,7 @@ struct QuickLoggingView: View {
         if currentStrokes.isEmpty {
             currentStrokes.append(.fruit)
         } else if currentStrokes.count == 1 {
-            currentStrokes.append(.protein)
+            currentStrokes.append(.animal)
         } else {
             resetInput()
             currentStrokes.append(.vegetable)

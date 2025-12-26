@@ -10,14 +10,14 @@ import Foundation
 /// Semantic categorization of strokes using voice tokens
 enum StrokeToken: String, Codable, CaseIterable {
     case vegetable = "vegetable" // Serve
-    case fruit = "fruit"        // Backhand
-    case protein = "protein"     // Forehand
+    case fruit = "fruit"        // Receive
+    case animal = "animal"     // Rally
     
     var displayName: String {
         switch self {
         case .vegetable: return "Serve"
-        case .fruit: return "Backhand"
-        case .protein: return "Forehand"
+        case .fruit: return "Receive"
+        case .animal: return "Rally"
         }
     }
     
@@ -25,7 +25,7 @@ enum StrokeToken: String, Codable, CaseIterable {
         switch self {
         case .vegetable: return "🥬"
         case .fruit: return "🍎"
-        case .protein: return "🐾"
+        case .animal: return "🐾"
         }
     }
 }
