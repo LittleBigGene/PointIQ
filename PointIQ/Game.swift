@@ -40,7 +40,13 @@ final class Game {
     }
     
     var pointsWon: Int {
-        points?.filter { $0.outcome == .winner }.count ?? 0
+        points?.filter { 
+            $0.outcome == .myWinner || 
+            $0.outcome == .opponentError || 
+            $0.outcome == .net || 
+            $0.outcome == .edge || 
+            $0.outcome == .doubleHappiness 
+        }.count ?? 0
     }
     
     var pointsLost: Int {

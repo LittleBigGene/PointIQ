@@ -378,7 +378,7 @@ struct ScoreboardView: View {
     private func increasePlayerScore(game: Game, match: Match) {
         let point = Point(
             strokeTokens: [],
-            outcome: .winner,
+            outcome: .myWinner,
             match: match,
             game: game
         )
@@ -389,7 +389,7 @@ struct ScoreboardView: View {
     private func decreasePlayerScore(game: Game, match: Match) {
         // Find and remove the most recent point with outcome .winner
         if let points = game.points {
-            let winnerPoints = points.filter { $0.outcome == .winner }
+            let winnerPoints = points.filter { $0.outcome == .myWinner }
             if let lastWinnerPoint = winnerPoints.sorted(by: { $0.timestamp > $1.timestamp }).first {
                 modelContext.delete(lastWinnerPoint)
                 try? modelContext.save()
@@ -501,7 +501,7 @@ struct PointHistoryRow: View {
         .padding(.horizontal)
         .padding(.vertical, 12)
         .background(
-            point.outcome == .winner ? Color.green.opacity(0.08) :
+            point.outcome == .myWinner ? Color.green.opacity(0.08) :
             point.outcome == .opponentWinner ? Color.red.opacity(0.08) :
             Color.clear
         )
