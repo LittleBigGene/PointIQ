@@ -129,6 +129,7 @@ struct LegendView: View {
                     
                     // Forehand Section
                     DisclosureGroup(isExpanded: $isForehandExpanded) {
+                        // General Forehand token
                         HStack(spacing: 16) {
                             Text(StrokeToken.protein.emoji)
                                 .font(.system(size: 32))
@@ -142,6 +143,32 @@ struct LegendView: View {
                             Spacer()
                         }
                         .padding(.vertical, 8)
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        // Forehand Types
+                        ForEach(ForehandType.allCases, id: \.self) { forehandType in
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 16) {
+                                    Text(forehandType.emoji)
+                                        .font(.system(size: 32))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("\(forehandType.displayName) / \(forehandType.spinType)")
+                                            .font(.headline)
+                                        Text(forehandType.proteinName)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                Text(forehandType.whyItWorks)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .padding(.leading, 48)
+                            }
+                            .padding(.vertical, 8)
+                        }
                     } label: {
                         Text("Forehand")
                             .font(.title2)

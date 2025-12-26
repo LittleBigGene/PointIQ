@@ -25,7 +25,7 @@ enum StrokeToken: String, Codable, CaseIterable {
         switch self {
         case .vegetable: return "🥬"
         case .fruit: return "🍎"
-        case .protein: return "🥩"
+        case .protein: return "🐾"
         }
     }
 }
