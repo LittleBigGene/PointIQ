@@ -33,24 +33,6 @@ struct LegendView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     // Serve Section
                     DisclosureGroup(isExpanded: $isServeExpanded) {
-                        // General Serve token
-                        HStack(spacing: 16) {
-                            Text(StrokeToken.vegetable.emoji)
-                                .font(.system(size: 32))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(StrokeToken.vegetable.displayName)
-                                    .font(.headline)
-                                Text(StrokeToken.vegetable.rawValue.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
-                        
-                        Divider()
-                            .padding(.vertical, 4)
-                        
                         // Serve Types
                         ForEach(ServeType.allCases, id: \.self) { serveType in
                             HStack(spacing: 16) {
@@ -68,9 +50,13 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Serve")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text(StrokeToken.vegetable.emoji)
+                                .font(.title2)
+                            Text("Serve")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
@@ -78,24 +64,6 @@ struct LegendView: View {
                     
                     // Receive Section
                     DisclosureGroup(isExpanded: $isReceiveExpanded) {
-                        // General Receive token
-                        HStack(spacing: 16) {
-                            Text(StrokeToken.fruit.emoji)
-                                .font(.system(size: 32))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(StrokeToken.fruit.displayName)
-                                    .font(.headline)
-                                Text(StrokeToken.fruit.rawValue.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
-                        
-                        Divider()
-                            .padding(.vertical, 4)
-                        
                         // Receive Types
                         ForEach(ReceiveType.allCases, id: \.self) { receiveType in
                             VStack(alignment: .leading, spacing: 8) {
@@ -119,9 +87,13 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Receive")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text(StrokeToken.fruit.emoji)
+                                .font(.title2)
+                            Text("Receive")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
@@ -129,24 +101,6 @@ struct LegendView: View {
                     
                     // Rally Section
                     DisclosureGroup(isExpanded: $isRallyExpanded) {
-                        // General Rally token
-                        HStack(spacing: 16) {
-                            Text(StrokeToken.animal.emoji)
-                                .font(.system(size: 32))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(StrokeToken.animal.displayName)
-                                    .font(.headline)
-                                Text(StrokeToken.animal.rawValue.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
-                        
-                        Divider()
-                            .padding(.vertical, 4)
-                        
                         // Rally Types
                         ForEach(RallyType.allCases, id: \.self) { rallyType in
                             VStack(alignment: .leading, spacing: 8) {
@@ -170,9 +124,13 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Rally")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text(StrokeToken.animal.emoji)
+                                .font(.title2)
+                            Text("Rally")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
