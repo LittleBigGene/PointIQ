@@ -10,6 +10,7 @@ import SwiftData
 
 // MARK: - Quick Logging View (Bottom Section)
 struct QuickLoggingView: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var currentMatch: Match?
     @Binding var currentGame: Game?
     @Binding var lastPoint: Point?
@@ -33,8 +34,15 @@ struct QuickLoggingView: View {
     private var isPlayerServing: Bool {
         guard let game = currentGame else { return true } // Default to player serving
         let pointCount = game.pointCount
-        // Points 1-2: player serves, Points 3-4: opponent serves, etc.
-        return (pointCount % 4) < 2
+        let playerServesFirst = game.playerServesFirst
+        
+        if playerServesFirst {
+            // Points 1-2: player serves, Points 3-4: opponent serves, etc.
+            return (pointCount % 4) < 2
+        } else {
+            // Points 1-2: opponent serves, Points 3-4: player serves, etc.
+            return (pointCount % 4) >= 2
+        }
     }
     
     // Hide outcomes when point history is tall (above 0.55)
@@ -120,6 +128,14 @@ struct QuickLoggingView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)            
         .background(Color.secondary.opacity(0.05))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Flip serving order only if no points have been played yet
+            if let game = currentGame, game.pointCount == 0 {
+                game.playerServesFirst.toggle()
+                try? modelContext.save()
+            }
+        }
     }
     
     private var mainContentView: some View {

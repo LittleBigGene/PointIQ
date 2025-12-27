@@ -112,6 +112,41 @@ struct StrokeSequenceView: View {
         }
     }
     
+    init(pointData: PointData) {
+        // Extract serve info
+        if let serveTypeString = pointData.serveType,
+           let serveType = ServeType(rawValue: serveTypeString) {
+            let serveInfo = Self.extractServeInfo(from: serveType)
+            self.serveShortName = serveInfo.shortName
+            self.serveEmoji = serveInfo.emoji
+        } else {
+            self.serveShortName = nil
+            self.serveEmoji = nil
+        }
+        
+        // Extract receive info - use actual type if available, otherwise fall back to generic fruit emoji
+        if let receiveTypeString = pointData.receiveType,
+           let receiveType = ReceiveType(rawValue: receiveTypeString) {
+            self.receiveEmoji = receiveType.emoji
+        } else {
+            // Fall back to generic fruit emoji for older points without receive type data
+            let strokeTokens = pointData.strokeTokenValues
+            self.receiveEmoji = strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
+        }
+        
+        // Extract rally info - use actual types if available, otherwise fall back to generic animal emoji
+        if !pointData.rallyTypes.isEmpty {
+            self.rallyEmojis = pointData.rallyTypes.compactMap { rallyTypeString in
+                RallyType(rawValue: rallyTypeString)?.emoji
+            }
+        } else {
+            // Fall back to generic animal emoji for older points without rally type data
+            let strokeTokens = pointData.strokeTokenValues
+            let animalTokens = strokeTokens.filter { $0 == .animal }
+            self.rallyEmojis = Array(repeating: StrokeToken.animal.emoji, count: animalTokens.count)
+        }
+    }
+    
     var body: some View {
         HStack(spacing: 6) {
             // Serve: shortName + emoji

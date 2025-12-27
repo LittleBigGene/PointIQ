@@ -16,19 +16,22 @@ final class Game {
     @Relationship(deleteRule: .cascade, inverse: \Point.game) var points: [Point]?
     var match: Match?
     var gameNumber: Int
+    var playerServesFirst: Bool // True if player serves first, false if opponent serves first
     
     init(
         id: UUID = UUID(),
         startDate: Date = Date(),
         endDate: Date? = nil,
         match: Match? = nil,
-        gameNumber: Int = 1
+        gameNumber: Int = 1,
+        playerServesFirst: Bool = true
     ) {
         self.id = id
         self.startDate = startDate
         self.endDate = endDate
         self.match = match
         self.gameNumber = gameNumber
+        self.playerServesFirst = playerServesFirst
     }
     
     var isActive: Bool {

@@ -152,6 +152,9 @@ struct ContentView: View {
         lastPoint = point
         try? modelContext.save()
         
+        // Save point to local storage
+        PointHistoryStorage.shared.savePoint(point, gameNumber: game.gameNumber)
+        
         // Check if game is complete
         if game.isComplete {
             endCurrentGame()
@@ -173,9 +176,13 @@ struct ContentView: View {
     
     private func undoLastPoint() {
         guard let point = lastPoint else { return }
+        let pointID = point.uniqueID
         modelContext.delete(point)
         lastPoint = nil
         try? modelContext.save()
+        
+        // Remove point from local storage by ID
+        PointHistoryStorage.shared.removePoint(byID: pointID)
     }
     
     private func resetMatch() {
@@ -197,6 +204,9 @@ struct ContentView: View {
             currentMatch = nil
             lastPoint = nil
             try? modelContext.save()
+            
+            // Clear local point history storage
+            PointHistoryStorage.shared.clearAllPoints()
             
             // Start a new match
             startNewMatch()
