@@ -22,12 +22,15 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
+                let isLandscape = geometry.size.width > geometry.size.height
+                
                 VStack(spacing: 0) {
                     // Top Section: Official Scoreboard
                     ScoreboardView(
                         match: currentMatch,
                         game: currentGame,
                         modelContext: modelContext,
+                        isLandscape: isLandscape,
                         onStartNewGame: {
                             startNewGame()
                         },
@@ -35,7 +38,8 @@ struct ContentView: View {
                             showResetMatchConfirmation = true
                         }
                     )
-                    .frame(height: geometry.size.height * 0.20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, isLandscape ? 20 : 0) // Move scoreboard down in landscape
 #if os(iOS) || os(tvOS) || os(visionOS)
                     .background(Color(UIColor.systemBackground))
 #elseif os(macOS)
@@ -44,38 +48,40 @@ struct ContentView: View {
                     .background(Color.background)
 #endif
                     
-                    Divider()
-                    
-                    // Middle Section: Point History
-                    PointHistoryView(
-                        match: currentMatch,
-                        game: currentGame
-                    )
-                    .frame(height: geometry.size.height * pointHistoryHeightRatio)
-                    .background(Color.secondary.opacity(0.05))
-                    
-                    // Resizable divider
-                    ResizableDivider(
-                        heightRatio: $pointHistoryHeightRatio,
-                        totalHeight: geometry.size.height,
-                        topSectionHeight: geometry.size.height * 0.20
-                    )
-                    
-                    // Bottom Section: Quick Logging Buttons
-                    QuickLoggingView(
-                        currentMatch: $currentMatch,
-                        currentGame: $currentGame,
-                        lastPoint: $lastPoint,
-                        isVoiceInputActive: $isVoiceInputActive,
-                        pointHistoryHeightRatio: pointHistoryHeightRatio,
-                        onPointLogged: { point in
-                            logPoint(point)
-                        },
-                        onUndo: {
-                            undoLastPoint()
-                        }
-                    )
-                    .frame(height: geometry.size.height * (1.0 - 0.20 - pointHistoryHeightRatio))
+                    if !isLandscape {
+                        Divider()
+                        
+                        // Middle Section: Point History
+                        PointHistoryView(
+                            match: currentMatch,
+                            game: currentGame
+                        )
+                        .frame(height: geometry.size.height * pointHistoryHeightRatio)
+                        .background(Color.secondary.opacity(0.05))
+                        
+                        // Resizable divider
+                        ResizableDivider(
+                            heightRatio: $pointHistoryHeightRatio,
+                            totalHeight: geometry.size.height,
+                            topSectionHeight: geometry.size.height * 0.20
+                        )
+                        
+                        // Bottom Section: Quick Logging Buttons
+                        QuickLoggingView(
+                            currentMatch: $currentMatch,
+                            currentGame: $currentGame,
+                            lastPoint: $lastPoint,
+                            isVoiceInputActive: $isVoiceInputActive,
+                            pointHistoryHeightRatio: pointHistoryHeightRatio,
+                            onPointLogged: { point in
+                                logPoint(point)
+                            },
+                            onUndo: {
+                                undoLastPoint()
+                            }
+                        )
+                        .frame(height: geometry.size.height * (1.0 - 0.20 - pointHistoryHeightRatio))
+                    }
                 }
             }
         }
