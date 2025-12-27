@@ -36,27 +36,22 @@ struct LegendView: View {
                         // Serve Types
                         ForEach(ServeType.allCases, id: \.self) { serveType in
                             HStack(spacing: 16) {
-                                Text(serveType.emoji)
-                                    .font(.system(size: 32))
+                                Text(serveType.rawValue)
+                                    .font(.system(size: 24, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 40)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(serveType.displayName)
                                         .font(.headline)
-                                    Text(serveType.vegetableName)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
                                 }
                                 Spacer()
                             }
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        HStack(spacing: 8) {
-                            Text(StrokeToken.vegetable.emoji)
-                                .font(.title2)
-                            Text("Serve")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
+                        Text("Serve")
+                            .font(.title2)
+                            .fontWeight(.bold)
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))

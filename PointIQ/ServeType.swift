@@ -7,37 +7,21 @@
 
 import Foundation
 
-/// Table tennis serve types with vegetable mnemonic tokens
+/// Table tennis serve types
 enum ServeType: String, Codable, CaseIterable {
-    case longFast = "long_fast"
-    case shortSoft = "short_soft"
-    case spinny = "spinny"
-    case dead = "dead"
+    case FL = "FL" // Fast & Long
+    case DL = "DL" // Dead & Long
+    case SL = "SL" // Spinny & Long
+    case DS = "DS" // Dead & Short
+    case SS = "SS" // Spinny & Short
     
     var displayName: String {
         switch self {
-        case .longFast: return "Long + Fast / Penetrating"
-        case .shortSoft: return "Short + Soft / Touch"
-        case .spinny: return "Spinny / Tricky"
-        case .dead: return "Dead / No-spin"
-        }
-    }
-    
-    var emoji: String {
-        switch self {
-        case .longFast: return "🥕" // Carrot - sharp, straight, goes far
-        case .shortSoft: return "🫛" // Pea - tiny, subtle, stays close
-        case .spinny: return "🍅" // Tomato - round, unpredictable spin
-        case .dead: return "🥔" // Potato - heavy, plops straight, minimal movement
-        }
-    }
-    
-    var vegetableName: String {
-        switch self {
-        case .longFast: return "Carrot"
-        case .shortSoft: return "Pea"
-        case .spinny: return "Tomato"
-        case .dead: return "Potato"
+        case .FL: return "Fast & Long"
+        case .DL: return "Dead & Long"
+        case .SL: return "Spinny & Long"
+        case .DS: return "Dead & Short"
+        case .SS: return "Spinny & Short"
         }
     }
 }
