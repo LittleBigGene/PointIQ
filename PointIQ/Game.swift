@@ -50,7 +50,7 @@ final class Game {
     }
     
     var pointsLost: Int {
-        points?.filter { $0.outcome == .opponentWinner }.count ?? 0
+        points?.filter { $0.outcome == .iMissed }.count ?? 0
     }
     
     // MARK: - Game Rules Logic

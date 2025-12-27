@@ -140,9 +140,7 @@ struct LegendView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(outcome.displayName)
                                         .font(.headline)
-                                    Text(outcome.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                    
                                 }
                                 Spacer()
                             }
