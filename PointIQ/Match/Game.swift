@@ -42,13 +42,16 @@ final class Game {
     var pointsWon: Int {
         points?.filter { 
             $0.outcome == .myWinner || 
-            $0.outcome == .opponentError || 
-            $0.outcome == .unlucky
+            $0.outcome == .opponentError
         }.count ?? 0
     }
     
     var pointsLost: Int {
-        points?.filter { $0.outcome == .iMissed }.count ?? 0
+        points?.filter { 
+            $0.outcome == .iMissed || 
+            $0.outcome == .myError || 
+            $0.outcome == .unlucky
+        }.count ?? 0
     }
     
     // MARK: - Game Rules Logic

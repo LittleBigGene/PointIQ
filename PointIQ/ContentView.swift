@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var lastPoint: Point?
     @State private var isVoiceInputActive = false
     @State private var showResetMatchConfirmation = false
+    @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.45
     
     var body: some View {
         NavigationStack {
@@ -50,10 +51,15 @@ struct ContentView: View {
                         match: currentMatch,
                         game: currentGame
                     )
-                    .frame(height: geometry.size.height * 0.45)
+                    .frame(height: geometry.size.height * pointHistoryHeightRatio)
                     .background(Color.secondary.opacity(0.05))
                     
-                    Divider()
+                    // Resizable divider
+                    ResizableDivider(
+                        heightRatio: $pointHistoryHeightRatio,
+                        totalHeight: geometry.size.height,
+                        topSectionHeight: geometry.size.height * 0.20
+                    )
                     
                     // Bottom Section: Quick Logging Buttons
                     QuickLoggingView(
@@ -68,7 +74,7 @@ struct ContentView: View {
                             undoLastPoint()
                         }
                     )
-                    .frame(height: geometry.size.height * 0.35)
+                    .frame(height: geometry.size.height * (1.0 - 0.20 - pointHistoryHeightRatio))
                 }
             }
         }
@@ -197,7 +203,12 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Scoreboard View (Top Section)
+// MARK: - ContentView ends here, components extracted to separate files
+// See: ScoreboardView.swift, PointHistoryView.swift, QuickLoggingView.swift, 
+//      ButtonComponents.swift, ResizableDivider.swift, ConfirmationOverlay.swift
+
+// MARK: - Scoreboard View (Top Section) - MOVED TO ScoreboardView.swift
+/*
 struct ScoreboardView: View {
     let match: Match?
     let game: Game?
@@ -213,8 +224,8 @@ struct ScoreboardView: View {
                     // Column 1: YOU Game Points
                     VStack(spacing: 8) {
                         Text("YOU")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.primary)
                         Text("\(game.pointsWon)")
                             .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundColor(game.isComplete && game.winner == true ? .green : .primary)                        
@@ -302,8 +313,8 @@ struct ScoreboardView: View {
                     // Column 3: OPP Game Points
                     VStack(spacing: 8) {
                         Text("OPP")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.primary)
                         Text("\(game.pointsLost)")
                             .font(.system(size: 56, weight: .bold, design: .rounded))
                             .foregroundColor(game.isComplete && game.winner == false ? .red : .primary)
@@ -471,20 +482,32 @@ struct PointHistoryRow: View {
                 .font(.system(size: 24))
                 .frame(width: 40)
             
-            // Strokes
-            if !point.strokeTokens.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(point.strokeTokens, id: \.self) { stroke in
-                        Text(stroke.emoji)
-                            .font(.system(size: 18))
+            // Serve type and strokes
+            HStack(spacing: 8) {
+                // Serve type shortName
+                if let serveTypeString = point.serveType,
+                   let serveType = ServeType(rawValue: serveTypeString) {
+                    Text(serveType.shortName)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.15))
+                        .cornerRadius(4)
+                }
+                
+                // Strokes (excluding vegetable/serve since we show serve type)
+                let displayTokens = point.strokeTokens.filter { $0 != .vegetable }
+                if !displayTokens.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(displayTokens, id: \.self) { stroke in
+                            Text(stroke.emoji)
+                                .font(.system(size: 18))
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text("—")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             
             // Outcome name
             Text(point.outcome.displayName)
@@ -523,90 +546,297 @@ struct QuickLoggingView: View {
     let onPointLogged: (Point) -> Void
     let onUndo: () -> Void
     
-    @State private var currentStrokes: [StrokeToken] = []
+    @State private var selectedServe: ServeType?
+    @State private var selectedReceive: ReceiveType?
+    @State private var selectedRallies: [RallyType] = []
     @State private var selectedOutcome: Outcome?
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
     
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Current strokes indicator
-                if !currentStrokes.isEmpty {
-                    HStack(spacing: 12) {
-                        ForEach(currentStrokes, id: \.self) { stroke in
-                            Text(stroke.emoji)
-                                .font(.system(size: 24))
-                        }
+    private var isInRallyMode: Bool {
+        selectedServe != nil && selectedReceive != nil
+    }
+    
+    // Determine who is serving based on point count (serve switches every 2 points)
+    private var isPlayerServing: Bool {
+        guard let game = currentGame else { return true } // Default to player serving
+        let pointCount = game.pointCount
+        // Points 1-2: player serves, Points 3-4: opponent serves, etc.
+        return (pointCount % 4) < 2
+    }
+    
+    private var headerView: some View {
+        VStack(spacing: 8) {
+            if isInRallyMode {
+                rallyModeHeader
+            } else if selectedServe != nil || selectedReceive != nil {
+                serveReceiveHeader
+            } else {
+                emptyHeader
+            }
+        }
+    }
+    
+    private var rallyModeHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 20) {
+                if let serve = selectedServe {
+                    HStack(spacing: 8) {
+                        Text(serve.displayName)
+                            .font(.system(size: 12, weight: .semibold))
                     }
-                    .padding(.vertical, 4)
                 }
                 
-                // Stroke buttons row
-                HStack(spacing: 8) {
-                    ForEach(StrokeToken.allCases, id: \.self) { stroke in
-                        Button(action: {
-                            addStroke(stroke)
-                        }) {
-                            VStack(spacing: 2) {
-                                Text(stroke.emoji)
-                                    .font(.system(size: 24))
-                                Text(stroke.displayName)
-                                    .font(.system(size: 10, weight: .medium))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(10)
-                        }
-                    }
-                }
-                .padding(.horizontal)
+                Text("→")
+                    .foregroundColor(.secondary.opacity(0.5))
                 
-                // Outcome buttons (2x2 grid)
-                if !currentStrokes.isEmpty {
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 8) {
-                        ForEach(Outcome.allCases, id: \.self) { outcome in
-                            OutcomeButton(
-                                outcome: outcome,
-                                isSelected: selectedOutcome == outcome
-                            ) {
-                                selectedOutcome = outcome
-                            }
-                        }
+                if let receive = selectedReceive {
+                    HStack(spacing: 8) {
+                        Text(receive.displayName)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(receive.emoji)
+                            .font(.system(size: 24))
                     }
-                    .padding(.horizontal)
-                }
-                
-                // Undo button
-                if lastPoint != nil {
-                    Button(action: {
-                        onUndo()
-                        resetInput()
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.uturn.backward")
-                            Text("Undo")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.red)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
                 }
             }
-            .padding(.vertical, 8)
+            
+            if !selectedRallies.isEmpty {
+                HStack(spacing: 12) {
+                    Text("Rally:")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                    ForEach(selectedRallies, id: \.self) { rally in
+                        HStack(spacing: 4) {
+                            Text(rally.emoji)
+                                .font(.system(size: 20))
+                            Text(rally.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                    }
+                    Spacer()
+                    Button(action: {
+                        if !selectedRallies.isEmpty {
+                            selectedRallies.removeLast()
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Button(action: {
+                resetInput()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.counterclockwise")
+                    Text("Reset")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            }
+            .padding(.top, 4)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.secondary.opacity(0.05))
+    }
+    
+    private var serveReceiveHeader: some View {
+        HStack(spacing: 20) {
+            if let serve = selectedServe {
+                HStack(spacing: 8) {
+                    Text(serve.displayName)
+                        .font(.system(size: 12, weight: .semibold))
+                    Button(action: {
+                        selectedServe = nil
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } else {
+                Text("—")
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .font(.system(size: 12))
+            }
+            
+            Spacer()
+            
+            if let receive = selectedReceive {
+                HStack(spacing: 8) {
+                    Button(action: {
+                        selectedReceive = nil
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
+                    Text(receive.displayName)
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(receive.emoji)
+                        .font(.system(size: 24))
+                }
+            } else {
+                Text("—")
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .font(.system(size: 12))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color.secondary.opacity(0.05))
+    }
+    
+    private var emptyHeader: some View {
+        EmptyView()
+    }
+    
+    private var mainContentView: some View {
+        ScrollView {
+            if isInRallyMode {
+                rallyModeContent
+            } else {
+                serveReceiveContent
+            }
+        }
+    }
+    
+    private var rallyModeContent: some View {
+        VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Rally")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                
+                Text("Select rally strokes (optional)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 20)
+                
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    ForEach(RallyType.allCases, id: \.self) { rallyType in
+                        RallyTypeButton(
+                            rallyType: rallyType,
+                            isSelected: selectedRallies.contains(rallyType)
+                        ) {
+                            toggleRally(rallyType)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+    
+    private var serveReceiveContent: some View {
+        HStack(alignment: .top, spacing: 0) {
+            if isPlayerServing {
+                // Player is serving: left = serve, right = receive
+                serveSection
+                Divider()
+                    .frame(width: 1)
+                receiveSection
+            } else {
+                // Opponent is serving: left = receive, right = serve
+                receiveSection
+                Divider()
+                    .frame(width: 1)
+                serveSection
+            }
+        }
+    }
+    
+    private var serveSection: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Text("Serve")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.primary)
+                .padding(.top, 12)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ], spacing: 8) {
+                ForEach(ServeType.allCases, id: \.self) { serveType in
+                    ServeTypeButton(
+                        serveType: serveType,
+                        isSelected: selectedServe == serveType,
+                        onTap: {
+                            selectedServe = serveType
+                        },
+                        onDoubleTap: {
+                            submitAceServe(serve: serveType)
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 12)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.secondary.opacity(0.03))
+    }
+    
+    private var receiveSection: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Text("Receive")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.primary)
+                .padding(.top, 12)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ], spacing: 8) {
+                ForEach(ReceiveType.allCases, id: \.self) { receiveType in
+                    ReceiveTypeButton(
+                        receiveType: receiveType,
+                        isSelected: selectedReceive == receiveType,
+                        onTap: {
+                            selectedReceive = receiveType
+                        },
+                        onDoubleTap: {
+                            submitGoodReceive(receive: receiveType)
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 12)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.secondary.opacity(0.03))
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            headerView
+            Divider()
+            mainContentView
+            Divider()
+            outcomesRow
         }
         .onChange(of: selectedOutcome) { _, newValue in
-            if let outcome = newValue, !currentStrokes.isEmpty {
-                submitPoint(strokes: currentStrokes, outcome: outcome)
+            if let outcome = newValue {
+                // Outcome selection directly ends the point
+                if let serve = selectedServe, let receive = selectedReceive {
+                    // If serve and receive are selected, include them
+                    submitPoint(serve: serve, receive: receive, rallies: selectedRallies, outcome: outcome)
+                } else {
+                    // Direct outcome selection without serve/receive
+                    submitDirectOutcome(outcome: outcome)
+                }
             }
         }
         .onChange(of: isVoiceInputActive) { _, isActive in
@@ -622,25 +852,115 @@ struct QuickLoggingView: View {
         }
     }
     
-    private func addStroke(_ stroke: StrokeToken) {
-        currentStrokes.append(stroke)
+    private var outcomesRow: some View {
+        HStack(spacing: 8) {
+            ForEach(Outcome.allCases, id: \.self) { outcome in
+                OutcomeButton(
+                    outcome: outcome,
+                    isSelected: selectedOutcome == outcome
+                ) {
+                    selectedOutcome = outcome
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 40) // Extra padding to account for tab bar
+        .background(Color.secondary.opacity(0.05))
     }
     
-    private func simulateVoiceInput() {
-        if currentStrokes.isEmpty {
-            currentStrokes.append(.fruit)
-        } else if currentStrokes.count == 1 {
-            currentStrokes.append(.animal)
+    private func toggleRally(_ rally: RallyType) {
+        if let index = selectedRallies.firstIndex(of: rally) {
+            selectedRallies.remove(at: index)
         } else {
-            resetInput()
-            currentStrokes.append(.vegetable)
+            selectedRallies.append(rally)
         }
     }
     
-    private func submitPoint(strokes: [StrokeToken], outcome: Outcome) {
+    private func simulateVoiceInput() {
+        // Simulate selecting a serve and receive
+        if selectedServe == nil {
+            selectedServe = ServeType.allCases.randomElement()
+        } else if selectedReceive == nil {
+            selectedReceive = ReceiveType.allCases.randomElement()
+        } else if selectedRallies.isEmpty {
+            selectedRallies.append(RallyType.allCases.randomElement()!)
+        } else {
+            resetInput()
+        }
+    }
+    
+    private func submitAceServe(serve: ServeType) {
+        // Ace serve: only serve token, no receive, point won immediately
+        // If player is serving: point goes to player (.myWinner)
+        // If opponent is serving: point goes to opponent (.iMissed)
+        let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
         let point = Point(
-            strokeTokens: strokes,
-            outcome: outcome
+            strokeTokens: [.vegetable], // Only serve
+            outcome: outcome,
+            serveType: serve.rawValue
+        )
+        onPointLogged(point)
+        
+        confirmationEmoji = outcome.emoji
+        showingConfirmation = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resetInput()
+            showingConfirmation = false
+        }
+    }
+    
+    private func submitGoodReceive(receive: ReceiveType) {
+        // Good receive: receive token only, point won immediately by whoever is receiving
+        // If player is receiving (opponent is serving): point goes to player (.myWinner)
+        // If opponent is receiving (player is serving): point goes to opponent (.iMissed)
+        let outcome: Outcome = isPlayerServing ? .iMissed : .myWinner
+        let point = Point(
+            strokeTokens: [.fruit], // Only receive
+            outcome: outcome,
+            serveType: nil
+        )
+        onPointLogged(point)
+        
+        confirmationEmoji = outcome.emoji
+        showingConfirmation = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resetInput()
+            showingConfirmation = false
+        }
+    }
+    
+    private func submitDirectOutcome(outcome: Outcome) {
+        // Direct outcome selection - point ends immediately
+        // Store original outcome for analytics, Game.swift handles scoring correctly
+        let point = Point(
+            strokeTokens: [], // No strokes for direct outcome
+            outcome: outcome,
+            serveType: nil
+        )
+        onPointLogged(point)
+        
+        confirmationEmoji = outcome.emoji
+        showingConfirmation = true
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resetInput()
+            showingConfirmation = false
+        }
+    }
+    
+    private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
+        // Map serve to vegetable token, receive to fruit token, and rallies to animal tokens
+        var strokeTokens: [StrokeToken] = [.vegetable, .fruit] // Serve then receive
+        strokeTokens.append(contentsOf: Array(repeating: .animal, count: rallies.count)) // Add rally tokens
+        
+        // Store original outcome - Game.swift handles scoring correctly
+        let point = Point(
+            strokeTokens: strokeTokens,
+            outcome: outcome,
+            serveType: serve.rawValue
         )
         onPointLogged(point)
         
@@ -654,8 +974,142 @@ struct QuickLoggingView: View {
     }
     
     private func resetInput() {
-        currentStrokes = []
+        selectedServe = nil
+        selectedReceive = nil
+        selectedRallies = []
         selectedOutcome = nil
+    }
+}
+
+// MARK: - Serve Type Button
+struct ServeTypeButton: View {
+    let serveType: ServeType
+    let isSelected: Bool
+    let onTap: () -> Void
+    let onDoubleTap: () -> Void
+    
+    @State private var tapTask: DispatchWorkItem?
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(serveType.shortName)
+                .font(.system(size: 20, weight: .bold))
+            Text(serveType.displayName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .padding(12)
+        .background(
+            isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
+        )
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        )
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    // Double tap - ace serve
+                    tapTask?.cancel()
+                    onDoubleTap()
+                }
+        )
+        .onTapGesture {
+            // Single tap - select serve (with delay to detect double tap)
+            tapTask?.cancel()
+            let task = DispatchWorkItem {
+                onTap()
+            }
+            tapTask = task
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
+        }
+    }
+}
+
+// MARK: - Receive Type Button
+struct ReceiveTypeButton: View {
+    let receiveType: ReceiveType
+    let isSelected: Bool
+    let onTap: () -> Void
+    let onDoubleTap: () -> Void
+    
+    @State private var tapTask: DispatchWorkItem?
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(receiveType.emoji)
+                .font(.system(size: 20))
+            Text(receiveType.displayName)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
+        .padding(12)
+        .background(
+            isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
+        )
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        )
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { _ in
+                    // Double tap - good receive scoring point
+                    tapTask?.cancel()
+                    onDoubleTap()
+                }
+        )
+        .onTapGesture {
+            // Single tap - select receive (with delay to detect double tap)
+            tapTask?.cancel()
+            let task = DispatchWorkItem {
+                onTap()
+            }
+            tapTask = task
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
+        }
+    }
+}
+
+// MARK: - Rally Type Button
+struct RallyTypeButton: View {
+    let rallyType: RallyType
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Text(rallyType.emoji)
+                    .font(.system(size: 20))
+                Text(rallyType.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .padding(12)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
+            )
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -667,17 +1121,19 @@ struct OutcomeButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 Text(outcome.emoji)
-                    .font(.system(size: 28))
+                    .font(.system(size: 20))
                 Text(outcome.displayName)
-                    .font(.system(size: 9, weight: .medium))
-                    .lineLimit(1)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .aspectRatio(1, contentMode: .fit)
+            .padding(12)
             .background(
-                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1)
+                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
             )
             .cornerRadius(10)
             .overlay(
@@ -686,6 +1142,59 @@ struct OutcomeButton: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Resizable Divider
+struct ResizableDivider: View {
+    @Binding var heightRatio: Double
+    let totalHeight: CGFloat
+    let topSectionHeight: CGFloat
+    
+    @State private var isDragging = false
+    @State private var initialRatio: Double = 0.45
+    
+    private let minRatio: Double = 0.15
+    private let maxRatio: Double = 0.70
+    
+    var body: some View {
+        ZStack {
+            Divider()
+            
+            // Drag handle
+            HStack {
+                Spacer()
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isDragging ? Color.accentColor : Color.secondary.opacity(0.4))
+                    .frame(width: 60, height: 8)
+                Spacer()
+            }
+            .padding(.vertical, 6)
+        }
+        .background(Color.secondary.opacity(isDragging ? 0.15 : 0.05))
+        .contentShape(Rectangle())
+        .frame(height: 24)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if !isDragging {
+                        isDragging = true
+                        initialRatio = heightRatio
+                    }
+                    
+                    // Calculate new ratio based on drag distance
+                    let dragDelta = value.translation.height
+                    let deltaRatio = dragDelta / totalHeight
+                    let newRatio = initialRatio - deltaRatio
+                    
+                    // Clamp the ratio between min and max
+                    let clampedRatio = max(minRatio, min(maxRatio, newRatio))
+                    heightRatio = clampedRatio
+                }
+                .onEnded { _ in
+                    isDragging = false
+                }
+        )
     }
 }
 
