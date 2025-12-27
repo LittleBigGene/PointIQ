@@ -13,9 +13,7 @@ enum Outcome: String, Codable, CaseIterable {
     case opponentError = "opponent_error"
     case myError = "my_error"
     case iMissed = "i_missed"
-    case net = "net"
-    case edge = "edge"
-    case doubleHappiness = "double_happiness"
+    case unlucky = "unlucky"
     
     var displayName: String {
         switch self {
@@ -23,9 +21,7 @@ enum Outcome: String, Codable, CaseIterable {
         case .opponentError: return "Opponent's Error"
         case .myError: return "My Error"
         case .iMissed: return "I Missed"
-        case .net: return "Net"
-        case .edge: return "Edge"
-        case .doubleHappiness: return "Double Happiness"
+        case .unlucky: return "Net and/or edge"
         }
     }
     
@@ -35,9 +31,7 @@ enum Outcome: String, Codable, CaseIterable {
         case .opponentError: return "🍀"
         case .myError: return "⚠️"
         case .iMissed: return "😿"
-        case .net: return "🕸️"
-        case .edge: return "⚡"
-        case .doubleHappiness: return "囍"
+        case .unlucky: return "🙃"
         }
     }
 }

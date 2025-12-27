@@ -43,9 +43,7 @@ final class Game {
         points?.filter { 
             $0.outcome == .myWinner || 
             $0.outcome == .opponentError || 
-            $0.outcome == .net || 
-            $0.outcome == .edge || 
-            $0.outcome == .doubleHappiness 
+            $0.outcome == .unlucky
         }.count ?? 0
     }
     
