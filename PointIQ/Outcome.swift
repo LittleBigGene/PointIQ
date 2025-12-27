@@ -9,26 +9,29 @@ import Foundation
 
 /// Point result classification
 enum Outcome: String, Codable, CaseIterable {
-    case winner = "winner"
-    case unforcedError = "unforced_error"
-    case forcedError = "forced_error"
-    case opponentWinner = "opponent_winner"
+    case myWinner = "my_winner"    
+    case opponentError = "opponent_error"
+    case myError = "my_error"
+    case iMissed = "i_missed"
+    case unlucky = "unlucky"
     
     var displayName: String {
         switch self {
-        case .winner: return "Winner"
-        case .unforcedError: return "Unforced Error"
-        case .forcedError: return "Forced Error"
-        case .opponentWinner: return "Opponent Winner"
+        case .myWinner: return "Cho-le"        
+        case .opponentError: return "Opponent's Error"
+        case .myError: return "My Error"
+        case .iMissed: return "I Missed"
+        case .unlucky: return "Net and/or edge"
         }
     }
     
     var emoji: String {
         switch self {
-        case .winner: return "✅"
-        case .unforcedError: return "❌"
-        case .forcedError: return "⚠️"
-        case .opponentWinner: return "👤"
+        case .myWinner: return "💪"
+        case .opponentError: return "🍀"
+        case .myError: return "⚠️"
+        case .iMissed: return "😿"
+        case .unlucky: return "🙃"
         }
     }
 }

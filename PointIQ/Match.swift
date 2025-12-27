@@ -41,11 +41,11 @@ final class Match {
     }
     
     var pointsWon: Int {
-        points?.filter { $0.outcome == .winner }.count ?? 0
+        points?.filter { $0.outcome == .myWinner }.count ?? 0
     }
     
     var pointsLost: Int {
-        points?.filter { $0.outcome == .opponentWinner }.count ?? 0
+        points?.filter { $0.outcome == .iMissed }.count ?? 0
     }
     
     var currentGame: Game? {
