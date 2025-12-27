@@ -54,53 +54,17 @@ struct PointHistoryRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Outcome emoji
-            Text(point.outcome.emoji)
-                .font(.system(size: 24))
-                .frame(width: 40)
+            StrokeSequenceView(point: point)
+                .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Serve, receive, and rally strokes - matching QuickLoggingView format
-            HStack(spacing: 6) {
-                // Serve: shortName + emoji
-                if let serveTypeString = point.serveType,
-                   let serveType = ServeType(rawValue: serveTypeString) {
-                    Text(serveType.shortName)
-                        .font(.system(size: 14, weight: .bold))
-                    Text(serveType.emoji)
-                        .font(.system(size: 18))
-                }
-                
-                // Arrow separator if we have serve and receive
-                if point.serveType != nil && point.strokeTokens.contains(.fruit) {
-                    Text("→")
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .font(.system(size: 14))
-                }
-                
-                // Receive: emoji (first fruit token)
-                if point.strokeTokens.firstIndex(of: .fruit) != nil {
-                    Text(StrokeToken.fruit.emoji)
-                        .font(.system(size: 18))
-                }
-                
-                // Rally: emojis (all animal tokens)
-                let animalTokens = point.strokeTokens.filter { $0 == .animal }
-                if !animalTokens.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(animalTokens, id: \.self) { _ in
-                            Text(StrokeToken.animal.emoji)
-                                .font(.system(size: 18))
-                        }
-                    }
-                }
+            // Outcome emoji and displayName together on the right
+            HStack(spacing: 8) {
+                Text(point.outcome.emoji)
+                    .font(.system(size: 24))
+                Text(point.outcome.displayName)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            // Outcome name
-            Text(point.outcome.displayName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 120, alignment: .trailing)
         }
         .padding(.horizontal)
         .padding(.vertical, 12)

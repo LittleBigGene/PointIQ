@@ -7,6 +7,84 @@
 
 import SwiftUI
 
+// MARK: - Stroke Sequence View
+struct StrokeSequenceView: View {
+    let serveShortName: String?
+    let serveEmoji: String?
+    let receiveEmoji: String?
+    let rallyEmojis: [String]
+    
+    init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType]) {
+        self.serveShortName = serve?.shortName
+        let emoji = serve?.emoji ?? ""
+        self.serveEmoji = emoji.isEmpty ? nil : emoji
+        self.receiveEmoji = receive?.emoji
+        self.rallyEmojis = rallies.map { $0.emoji }
+    }
+    
+    init(point: Point) {
+        if let serveTypeString = point.serveType,
+           let serveType = ServeType(rawValue: serveTypeString) {
+            self.serveShortName = serveType.shortName
+            let emoji = serveType.emoji
+            self.serveEmoji = emoji.isEmpty ? nil : emoji
+        } else {
+            self.serveShortName = nil
+            self.serveEmoji = nil
+        }
+        
+        self.receiveEmoji = point.strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
+        
+        // Use actual rally types if available, otherwise fall back to generic animal emoji
+        if !point.rallyTypes.isEmpty {
+            self.rallyEmojis = point.rallyTypes.compactMap { rallyTypeString in
+                RallyType(rawValue: rallyTypeString)?.emoji
+            }
+        } else {
+            // Fall back to generic animal emoji for older points without rally type data
+            let animalTokens = point.strokeTokens.filter { $0 == .animal }
+            self.rallyEmojis = Array(repeating: StrokeToken.animal.emoji, count: animalTokens.count)
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            // Serve: shortName + emoji
+            if let serveShortName = serveShortName {
+                Text(serveShortName)
+                    .font(.system(size: 14, weight: .bold))
+                if let serveEmoji = serveEmoji {
+                    Text(serveEmoji)
+                        .font(.system(size: 18))
+                }
+            }
+            
+            // Arrow separator if we have serve and receive
+            if serveShortName != nil && receiveEmoji != nil {
+                Text("→")
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .font(.system(size: 14))
+            }
+            
+            // Receive: emoji
+            if let receiveEmoji = receiveEmoji {
+                Text(receiveEmoji)
+                    .font(.system(size: 18))
+            }
+            
+            // Rally: emojis
+            if !rallyEmojis.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(rallyEmojis.indices, id: \.self) { index in
+                        Text(rallyEmojis[index])
+                            .font(.system(size: 18))
+                    }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Serve Type Button
 struct ServeTypeButton: View {
     let serveType: ServeType

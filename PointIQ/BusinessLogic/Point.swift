@@ -16,6 +16,7 @@ final class Point {
     var match: Match?
     var game: Game?
     var serveType: String?
+    var rallyTypes: [String] // Store specific rally types
     
     init(
         timestamp: Date = Date(),
@@ -23,7 +24,8 @@ final class Point {
         outcome: Outcome,
         match: Match? = nil,
         game: Game? = nil,
-        serveType: String? = nil
+        serveType: String? = nil,
+        rallyTypes: [String] = []
     ) {
         self.timestamp = timestamp
         self.strokeTokens = strokeTokens
@@ -31,6 +33,7 @@ final class Point {
         self.match = match
         self.game = game
         self.serveType = serveType
+        self.rallyTypes = rallyTypes
     }
     
     /// JSON-like representation for analytics

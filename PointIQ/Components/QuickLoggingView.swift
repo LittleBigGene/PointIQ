@@ -78,128 +78,36 @@ struct QuickLoggingView: View {
     }
     
     private var headerView: some View {
-        VStack(spacing: 8) {
-            if isInRallyMode {
-                rallyModeHeader
-            } else if selectedServe != nil || selectedReceive != nil {
-                serveReceiveHeader
+        Group {
+            if selectedServe != nil || selectedReceive != nil {
+                previewHeader
             } else {
-                emptyHeader
+                EmptyView()
             }
         }
     }
     
-    private var rallyModeHeader: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 20) {
-                if let serve = selectedServe {
-                    HStack(spacing: 6) {
-                        Text(serve.shortName)
-                            .font(.system(size: 14, weight: .bold))
-                        Text(serve.emoji)
-                            .font(.system(size: 18))
-                    }
-                }
-                
-                Text("→")
-                    .foregroundColor(.secondary.opacity(0.5))
-                
-                if let receive = selectedReceive {
-                    HStack(spacing: 6) {
-                        Text(receive.emoji)
-                            .font(.system(size: 18))
-                    }
-                }
-            }
+    private var previewHeader: some View {
+        HStack(spacing: 12) {
+            StrokeSequenceView(
+                serve: selectedServe,
+                receive: selectedReceive,
+                rallies: selectedRallies
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
             
-            if !selectedRallies.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(selectedRallies, id: \.self) { rally in
-                        Text(rally.emoji)
-                            .font(.system(size: 18))
-                    }
-                    Spacer()
-                    Button(action: {
-                        if !selectedRallies.isEmpty {
-                            selectedRallies.removeLast()
-                        }
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            
-            HStack {
-                Spacer()
-                Button(action: {
-                    resetInput()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Reset")
-                    }
-                    .font(.system(size: 11, weight: .medium))
+            // Reset button
+            Button(action: {
+                resetInput()
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
                     .foregroundColor(.secondary)
-                }
-            }
-            .padding(.top, 4)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color.secondary.opacity(0.05))
-    }
-    
-    private var serveReceiveHeader: some View {
-        HStack(spacing: 20) {
-            if let serve = selectedServe {
-                HStack(spacing: 6) {
-                    Text(serve.shortName)
-                        .font(.system(size: 14, weight: .bold))
-                    Text(serve.emoji)
-                        .font(.system(size: 18))
-                    Button(action: {
-                        selectedServe = nil
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } else {
-                Text("—")
-                    .foregroundColor(.secondary.opacity(0.5))
-                    .font(.system(size: 12))
-            }
-            
-            Spacer()
-            
-            if let receive = selectedReceive {
-                HStack(spacing: 6) {
-                    Button(action: {
-                        selectedReceive = nil
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    }
-                    Text(receive.emoji)
-                        .font(.system(size: 18))
-                }
-            } else {
-                Text("—")
-                    .foregroundColor(.secondary.opacity(0.5))
-                    .font(.system(size: 12))
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(Color.secondary.opacity(0.05))
-    }
-    
-    private var emptyHeader: some View {
-        EmptyView()
     }
     
     private var mainContentView: some View {
@@ -274,7 +182,9 @@ struct QuickLoggingView: View {
                         serveType: serveType,
                         isSelected: selectedServe == serveType,
                         onTap: {
-                            selectedServe = serveType
+                            if selectedServe == nil {
+                                selectedServe = serveType
+                            }
                         },
                         onDoubleTap: {
                             submitAceServe(serve: serveType)
@@ -306,7 +216,9 @@ struct QuickLoggingView: View {
                         receiveType: receiveType,
                         isSelected: selectedReceive == receiveType,
                         onTap: {
-                            selectedReceive = receiveType
+                            if selectedReceive == nil {
+                                selectedReceive = receiveType
+                            }
                         },
                         onDoubleTap: {
                             submitGoodReceive(receive: receiveType)
@@ -427,7 +339,8 @@ struct QuickLoggingView: View {
         let point = Point(
             strokeTokens: strokeTokens,
             outcome: outcome,
-            serveType: serve.rawValue
+            serveType: serve.rawValue,
+            rallyTypes: rallies.map { $0.rawValue }
         )
         onPointLogged(point)
         
