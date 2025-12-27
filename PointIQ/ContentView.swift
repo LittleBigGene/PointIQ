@@ -17,7 +17,7 @@ struct ContentView: View {
     @State private var lastPoint: Point?
     @State private var isVoiceInputActive = false
     @State private var showResetMatchConfirmation = false
-    @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.45
+    @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
     
     var body: some View {
         NavigationStack {

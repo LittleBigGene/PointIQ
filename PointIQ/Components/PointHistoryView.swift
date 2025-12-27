@@ -78,7 +78,7 @@ struct PointHistoryRow: View {
                 }
                 
                 // Receive: emoji (first fruit token)
-                if let fruitIndex = point.strokeTokens.firstIndex(of: .fruit) {
+                if point.strokeTokens.firstIndex(of: .fruit) != nil {
                     Text(StrokeToken.fruit.emoji)
                         .font(.system(size: 18))
                 }

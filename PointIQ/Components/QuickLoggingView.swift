@@ -222,10 +222,10 @@ struct QuickLoggingView: View {
                     .padding(.top, 12)                
                 
                 LazyVGrid(columns: [
-                    GridItem(.flexible(), spacing: 10),
-                    GridItem(.flexible(), spacing: 10),
-                    GridItem(.flexible(), spacing: 10)
-                ], spacing: 10) {
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12),
+                    GridItem(.flexible(), spacing: 12)
+                ], spacing: 12) {
                     ForEach(RallyType.allCases, id: \.self) { rallyType in
                         RallyTypeButton(
                             rallyType: rallyType,
@@ -283,10 +283,10 @@ struct QuickLoggingView: View {
                 }
             }
             .padding(.horizontal, 12)
-            
-            Spacer()
+            .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .frame(height: 320)
         .background(Color.secondary.opacity(0.03))
     }
     
@@ -315,10 +315,10 @@ struct QuickLoggingView: View {
                 }
             }
             .padding(.horizontal, 12)
-            
-            Spacer()
+            .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .frame(height: 320)
         .background(Color.secondary.opacity(0.03))
     }
     
@@ -334,7 +334,7 @@ struct QuickLoggingView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 10)
+        .padding(.top, 4)
         .padding(.bottom, 40) // Extra padding to account for tab bar
         .background(Color.secondary.opacity(0.05))
     }

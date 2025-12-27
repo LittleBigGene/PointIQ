@@ -13,9 +13,9 @@ struct ResizableDivider: View {
     let topSectionHeight: CGFloat
     
     @State private var isDragging = false
-    @State private var initialRatio: Double = 0.45
+    @State private var initialRatio: Double = 0.55
     
-    private let minRatio: Double = 0.15
+    private let minRatio: Double = 0.20
     private let maxRatio: Double = 0.70
     
     var body: some View {

@@ -14,6 +14,7 @@ enum ReceiveType: String, Codable, CaseIterable {
     case forehandFlick = "forehand_flick"
     case backhandFlick = "backhand_flick"
     case reverseFlick = "reverse_flick"
+    case attack = "attack"
     
     var displayName: String {
         switch self {        
@@ -22,6 +23,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "Forehand Flick"
         case .backhandFlick: return "Backhand Flick"
         case .reverseFlick: return "Reverse Flick"
+        case .attack: return "Attack"
         }
     }
     
@@ -32,6 +34,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "🥝" // Kiwi - forehand flick variation
         case .backhandFlick: return "🍌" // Banana - curved, attacking short stroke
         case .reverseFlick: return "🍓" // Strawberry - deceptive, sweet twist
+        case .attack: return "🐾" // Animal - aggressive attack received
         }
     }
     
@@ -42,6 +45,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "Kiwi"
         case .backhandFlick: return "Banana"
         case .reverseFlick: return "Strawberry"
+        case .attack: return "Animal"
         }
     }
     
@@ -52,6 +56,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "Topspin / Sidespin"
         case .backhandFlick: return "Topspin / Sidespin"
         case .reverseFlick: return "Topspin / Sidespin"
+        case .attack: return "Aggressive Attack"
         }
     }
     
@@ -62,6 +67,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "Forehand variation of the flick — attacking stroke with topspin and sidespin."
         case .backhandFlick: return "Backhand variation of the flick — attacking stroke with topspin and sidespin."
         case .reverseFlick: return "Deceptive stroke with reverse spin variation."
+        case .attack: return "Received an aggressive, powerful attack from the opponent."
         }
     }
 }

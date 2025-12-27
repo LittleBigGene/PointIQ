@@ -116,16 +116,16 @@ struct RallyTypeButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text(rallyType.emoji)
-                    .font(.system(size: 20))
+                    .font(.system(size: 28))
                 Text(rallyType.displayName)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
             .aspectRatio(1, contentMode: .fit)
-            .padding(12)
+            .padding(16)
             .background(
                 isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
             )

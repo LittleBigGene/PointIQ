@@ -13,6 +13,7 @@ enum ServeType: String, Codable, CaseIterable {
     case SL = "SL" // Spinny & Long
     case DS = "DS" // Dead & Short
     case DL = "DL" // Dead & Long
+    case HU = "HU" // Heavy Underspin
     case FL = "FL" // Fast & Long
     
     var displayName: String {
@@ -21,6 +22,7 @@ enum ServeType: String, Codable, CaseIterable {
         case .SL: return "Spinny & Long"
         case .DS: return "Dead & Short"
         case .DL: return "Dead & Long"
+        case .HU: return "Heavy Underspin"
         case .FL: return "Fast & Long"
         }
     }
@@ -31,6 +33,7 @@ enum ServeType: String, Codable, CaseIterable {
         case .SL: return "SL"
         case .DS: return "DS"
         case .DL: return "DL"
+        case .HU: return "HU"
         case .FL: return "FL"
         }
     }
