@@ -67,6 +67,7 @@ struct ContentView: View {
                         currentGame: $currentGame,
                         lastPoint: $lastPoint,
                         isVoiceInputActive: $isVoiceInputActive,
+                        pointHistoryHeightRatio: pointHistoryHeightRatio,
                         onPointLogged: { point in
                             logPoint(point)
                         },

@@ -14,6 +14,7 @@ struct QuickLoggingView: View {
     @Binding var currentGame: Game?
     @Binding var lastPoint: Point?
     @Binding var isVoiceInputActive: Bool
+    let pointHistoryHeightRatio: Double
     let onPointLogged: (Point) -> Void
     let onUndo: () -> Void
     
@@ -36,13 +37,20 @@ struct QuickLoggingView: View {
         return (pointCount % 4) < 2
     }
     
+    // Hide outcomes when point history is tall (above 0.55)
+    private var shouldHideOutcomes: Bool {
+        pointHistoryHeightRatio > 0.55
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             headerView
             Divider()
             mainContentView
-            Divider()
-            outcomesRow
+            if !shouldHideOutcomes {
+                Divider()
+                outcomesRow
+            }
         }
         .onChange(of: selectedOutcome) { _, newValue in
             if let outcome = newValue {
@@ -85,9 +93,11 @@ struct QuickLoggingView: View {
         VStack(spacing: 8) {
             HStack(spacing: 20) {
                 if let serve = selectedServe {
-                    HStack(spacing: 8) {
-                        Text(serve.displayName)
-                            .font(.system(size: 12, weight: .semibold))
+                    HStack(spacing: 6) {
+                        Text(serve.shortName)
+                            .font(.system(size: 14, weight: .bold))
+                        Text(serve.emoji)
+                            .font(.system(size: 18))
                     }
                 }
                 
@@ -95,27 +105,18 @@ struct QuickLoggingView: View {
                     .foregroundColor(.secondary.opacity(0.5))
                 
                 if let receive = selectedReceive {
-                    HStack(spacing: 8) {
-                        Text(receive.displayName)
-                            .font(.system(size: 12, weight: .semibold))
+                    HStack(spacing: 6) {
                         Text(receive.emoji)
-                            .font(.system(size: 24))
+                            .font(.system(size: 18))
                     }
                 }
             }
             
             if !selectedRallies.isEmpty {
-                HStack(spacing: 12) {
-                    Text("Rally:")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.secondary)
+                HStack(spacing: 8) {
                     ForEach(selectedRallies, id: \.self) { rally in
-                        HStack(spacing: 4) {
-                            Text(rally.emoji)
-                                .font(.system(size: 20))
-                            Text(rally.displayName)
-                                .font(.system(size: 11, weight: .medium))
-                        }
+                        Text(rally.emoji)
+                            .font(.system(size: 18))
                     }
                     Spacer()
                     Button(action: {
@@ -130,15 +131,18 @@ struct QuickLoggingView: View {
                 }
             }
             
-            Button(action: {
-                resetInput()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.counterclockwise")
-                    Text("Reset")
+            HStack {
+                Spacer()
+                Button(action: {
+                    resetInput()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset")
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary)
                 }
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
             }
             .padding(.top, 4)
         }
@@ -150,9 +154,11 @@ struct QuickLoggingView: View {
     private var serveReceiveHeader: some View {
         HStack(spacing: 20) {
             if let serve = selectedServe {
-                HStack(spacing: 8) {
-                    Text(serve.displayName)
-                        .font(.system(size: 12, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text(serve.shortName)
+                        .font(.system(size: 14, weight: .bold))
+                    Text(serve.emoji)
+                        .font(.system(size: 18))
                     Button(action: {
                         selectedServe = nil
                     }) {
@@ -170,7 +176,7 @@ struct QuickLoggingView: View {
             Spacer()
             
             if let receive = selectedReceive {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Button(action: {
                         selectedReceive = nil
                     }) {
@@ -178,10 +184,8 @@ struct QuickLoggingView: View {
                             .font(.system(size: 16))
                             .foregroundColor(.secondary)
                     }
-                    Text(receive.displayName)
-                        .font(.system(size: 12, weight: .semibold))
                     Text(receive.emoji)
-                        .font(.system(size: 24))
+                        .font(.system(size: 18))
                 }
             } else {
                 Text("—")
@@ -215,12 +219,7 @@ struct QuickLoggingView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.primary)
                     .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                
-                Text("Select rally strokes (optional)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 20)
+                    .padding(.top, 12)                
                 
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 10),
@@ -230,9 +229,9 @@ struct QuickLoggingView: View {
                     ForEach(RallyType.allCases, id: \.self) { rallyType in
                         RallyTypeButton(
                             rallyType: rallyType,
-                            isSelected: selectedRallies.contains(rallyType)
+                            isSelected: false
                         ) {
-                            toggleRally(rallyType)
+                            addRally(rallyType)
                         }
                     }
                 }
@@ -340,12 +339,9 @@ struct QuickLoggingView: View {
         .background(Color.secondary.opacity(0.05))
     }
     
-    private func toggleRally(_ rally: RallyType) {
-        if let index = selectedRallies.firstIndex(of: rally) {
-            selectedRallies.remove(at: index)
-        } else {
-            selectedRallies.append(rally)
-        }
+    private func addRally(_ rally: RallyType) {
+        // Always append the rally type to allow continuous rally selection
+        selectedRallies.append(rally)
     }
     
     private func simulateVoiceInput() {

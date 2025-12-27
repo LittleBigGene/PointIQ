@@ -13,7 +13,7 @@ struct MainTabView: View {
         TabView {
             ContentView()
                 .tabItem {
-                    Label("Match", systemImage: "figure.table.tennis")
+                    Label("Play", systemImage: "figure.table.tennis")
                 }
             ProfileView()
                 .tabItem {

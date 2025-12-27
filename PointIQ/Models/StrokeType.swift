@@ -46,7 +46,7 @@ enum StrokeType: Codable, Hashable {
 // MARK: - StrokeType Extensions for ServeType, ReceiveType, RallyType
 extension ServeType: StrokeTypeProtocol {
     var emoji: String {
-        return "🥬" // Default vegetable emoji for serves
+        return ""
     }
 }
 

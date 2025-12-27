@@ -26,9 +26,9 @@ struct ServeTypeButton: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(12)
+        .aspectRatio(1, contentMode: .fit)
         .background(
             isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
         )
@@ -76,8 +76,7 @@ struct ReceiveTypeButton: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(12)
         .background(
             isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
@@ -87,6 +86,7 @@ struct ReceiveTypeButton: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
         )
+        .aspectRatio(1, contentMode: .fit)
         .contentShape(Rectangle())
         .simultaneousGesture(
             TapGesture(count: 2)
@@ -154,9 +154,10 @@ struct OutcomeButton: View {
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(0.85, contentMode: .fit)
             .padding(12)
             .background(
                 isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)

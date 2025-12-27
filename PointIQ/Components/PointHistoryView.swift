@@ -59,26 +59,36 @@ struct PointHistoryRow: View {
                 .font(.system(size: 24))
                 .frame(width: 40)
             
-            // Serve type and strokes
-            HStack(spacing: 8) {
-                // Serve type shortName
+            // Serve, receive, and rally strokes - matching QuickLoggingView format
+            HStack(spacing: 6) {
+                // Serve: shortName + emoji
                 if let serveTypeString = point.serveType,
                    let serveType = ServeType(rawValue: serveTypeString) {
                     Text(serveType.shortName)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.15))
-                        .cornerRadius(4)
+                        .font(.system(size: 14, weight: .bold))
+                    Text(serveType.emoji)
+                        .font(.system(size: 18))
                 }
                 
-                // Strokes (excluding vegetable/serve since we show serve type)
-                let displayTokens = point.strokeTokens.filter { $0 != .vegetable }
-                if !displayTokens.isEmpty {
+                // Arrow separator if we have serve and receive
+                if point.serveType != nil && point.strokeTokens.contains(.fruit) {
+                    Text("→")
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .font(.system(size: 14))
+                }
+                
+                // Receive: emoji (first fruit token)
+                if let fruitIndex = point.strokeTokens.firstIndex(of: .fruit) {
+                    Text(StrokeToken.fruit.emoji)
+                        .font(.system(size: 18))
+                }
+                
+                // Rally: emojis (all animal tokens)
+                let animalTokens = point.strokeTokens.filter { $0 == .animal }
+                if !animalTokens.isEmpty {
                     HStack(spacing: 4) {
-                        ForEach(displayTokens, id: \.self) { stroke in
-                            Text(stroke.emoji)
+                        ForEach(animalTokens, id: \.self) { _ in
+                            Text(StrokeToken.animal.emoji)
                                 .font(.system(size: 18))
                         }
                     }
@@ -91,12 +101,6 @@ struct PointHistoryRow: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.secondary)
                 .frame(width: 120, alignment: .trailing)
-            
-            // Time
-            Text(point.timestamp, style: .time)
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .trailing)
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
