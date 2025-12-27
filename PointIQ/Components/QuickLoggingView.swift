@@ -44,7 +44,7 @@ struct QuickLoggingView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            headerView
+            previewHeader
             Divider()
             mainContentView
             if !shouldHideOutcomes {
@@ -77,36 +77,48 @@ struct QuickLoggingView: View {
         }
     }
     
-    private var headerView: some View {
-        Group {
-            if selectedServe != nil || selectedReceive != nil {
-                previewHeader
-            } else {
-                EmptyView()
-            }
-        }
+    private var hasSelection: Bool {
+        selectedServe != nil || selectedReceive != nil || !selectedRallies.isEmpty
+    }
+    
+    private var placeholderText: (left: String, right: String) {
+        isPlayerServing ? ("Serve", "Receive") : ("Receive", "Serve")
     }
     
     private var previewHeader: some View {
         HStack(spacing: 12) {
-            StrokeSequenceView(
-                serve: selectedServe,
-                receive: selectedReceive,
-                rallies: selectedRallies
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            if hasSelection {
+                StrokeSequenceView(
+                    serve: selectedServe,
+                    receive: selectedReceive,
+                    rallies: selectedRallies
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Placeholder when nothing is selected - layout matches button arrangement
+                HStack {
+                    Text(placeholderText.left)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(placeholderText.right)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
             
-            // Reset button
-            Button(action: {
-                resetInput()
-            }) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.secondary)
+            // Reset button - only show when something is selected
+            if hasSelection {
+                Button(action: resetInput) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.vertical, 12)            
         .background(Color.secondary.opacity(0.05))
     }
     
@@ -164,19 +176,16 @@ struct QuickLoggingView: View {
                 serveSection
             }
         }
+        .padding(.top, -12)
+    }
+    
+    private var gridColumns: [GridItem] {
+        [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
     }
     
     private var serveSection: some View {
-        VStack(alignment: .center, spacing: 12) {
-            Text("Serve")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.primary)
-                .padding(.top, 12)
-            
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8)
-            ], spacing: 8) {
+        VStack(alignment: .center, spacing: 0) {
+            LazyVGrid(columns: gridColumns, spacing: 8) {
                 ForEach(ServeType.allCases, id: \.self) { serveType in
                     ServeTypeButton(
                         serveType: serveType,
@@ -193,6 +202,7 @@ struct QuickLoggingView: View {
                 }
             }
             .padding(.horizontal, 12)
+            .padding(.top, 0)
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
@@ -201,32 +211,31 @@ struct QuickLoggingView: View {
     }
     
     private var receiveSection: some View {
-        VStack(alignment: .center, spacing: 12) {
-            Text("Receive")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.primary)
-                .padding(.top, 12)
-            
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8)
-            ], spacing: 8) {
+        VStack(alignment: .center, spacing: 0) {
+            LazyVGrid(columns: gridColumns, spacing: 8) {
                 ForEach(ReceiveType.allCases, id: \.self) { receiveType in
                     ReceiveTypeButton(
                         receiveType: receiveType,
                         isSelected: selectedReceive == receiveType,
                         onTap: {
-                            if selectedReceive == nil {
+                            // Can only select receive if serve is already selected
+                            if selectedServe != nil && selectedReceive == nil {
                                 selectedReceive = receiveType
                             }
                         },
                         onDoubleTap: {
-                            submitGoodReceive(receive: receiveType)
+                            // Double tap only works if serve is selected
+                            if selectedServe != nil {
+                                submitGoodReceive(receive: receiveType)
+                            }
                         }
                     )
+                    .disabled(selectedServe == nil)
+                    .opacity(selectedServe == nil ? 0.5 : 1.0)
                 }
             }
             .padding(.horizontal, 12)
+            .padding(.top, 0)
             .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity)
@@ -269,6 +278,15 @@ struct QuickLoggingView: View {
         }
     }
     
+    private func showConfirmation(emoji: String) {
+        confirmationEmoji = emoji
+        showingConfirmation = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resetInput()
+            showingConfirmation = false
+        }
+    }
+    
     private func submitAceServe(serve: ServeType) {
         // Ace serve: only serve token, no receive, point won immediately
         // If player is serving: point goes to player (.myWinner)
@@ -280,14 +298,7 @@ struct QuickLoggingView: View {
             serveType: serve.rawValue
         )
         onPointLogged(point)
-        
-        confirmationEmoji = outcome.emoji
-        showingConfirmation = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            resetInput()
-            showingConfirmation = false
-        }
+        showConfirmation(emoji: outcome.emoji)
     }
     
     private func submitGoodReceive(receive: ReceiveType) {
@@ -298,17 +309,11 @@ struct QuickLoggingView: View {
         let point = Point(
             strokeTokens: [.fruit], // Only receive
             outcome: outcome,
-            serveType: nil
+            serveType: nil,
+            receiveType: receive.rawValue
         )
         onPointLogged(point)
-        
-        confirmationEmoji = outcome.emoji
-        showingConfirmation = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            resetInput()
-            showingConfirmation = false
-        }
+        showConfirmation(emoji: outcome.emoji)
     }
     
     private func submitDirectOutcome(outcome: Outcome) {
@@ -320,14 +325,7 @@ struct QuickLoggingView: View {
             serveType: nil
         )
         onPointLogged(point)
-        
-        confirmationEmoji = outcome.emoji
-        showingConfirmation = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            resetInput()
-            showingConfirmation = false
-        }
+        showConfirmation(emoji: outcome.emoji)
     }
     
     private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
@@ -340,17 +338,11 @@ struct QuickLoggingView: View {
             strokeTokens: strokeTokens,
             outcome: outcome,
             serveType: serve.rawValue,
+            receiveType: receive.rawValue,
             rallyTypes: rallies.map { $0.rawValue }
         )
         onPointLogged(point)
-        
-        confirmationEmoji = outcome.emoji
-        showingConfirmation = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            resetInput()
-            showingConfirmation = false
-        }
+        showConfirmation(emoji: outcome.emoji)
     }
     
     private func resetInput() {

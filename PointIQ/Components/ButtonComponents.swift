@@ -7,6 +7,57 @@
 
 import SwiftUI
 
+// MARK: - View Modifiers
+
+extension View {
+    func buttonStyle(isSelected: Bool, cornerRadius: CGFloat = 10) -> some View {
+        self
+            .background(
+                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
+            )
+            .cornerRadius(cornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+    }
+}
+
+// MARK: - Double Tap Handler
+
+struct DoubleTapHandler: ViewModifier {
+    let onSingleTap: () -> Void
+    let onDoubleTap: () -> Void
+    
+    @State private var tapTask: DispatchWorkItem?
+    
+    func body(content: Content) -> some View {
+        content
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture(count: 2)
+                    .onEnded { _ in
+                        tapTask?.cancel()
+                        onDoubleTap()
+                    }
+            )
+            .onTapGesture {
+                tapTask?.cancel()
+                let task = DispatchWorkItem {
+                    onSingleTap()
+                }
+                tapTask = task
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
+            }
+    }
+}
+
+extension View {
+    func onDoubleTap(singleTap: @escaping () -> Void, doubleTap: @escaping () -> Void) -> some View {
+        modifier(DoubleTapHandler(onSingleTap: singleTap, onDoubleTap: doubleTap))
+    }
+}
+
 // MARK: - Stroke Sequence View
 struct StrokeSequenceView: View {
     let serveShortName: String?
@@ -14,28 +65,42 @@ struct StrokeSequenceView: View {
     let receiveEmoji: String?
     let rallyEmojis: [String]
     
+    private static func extractServeInfo(from serve: ServeType?) -> (shortName: String?, emoji: String?) {
+        guard let serve = serve else { return (nil, nil) }
+        let emoji = serve.emoji.isEmpty ? nil : serve.emoji
+        return (serve.shortName, emoji)
+    }
+    
     init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType]) {
-        self.serveShortName = serve?.shortName
-        let emoji = serve?.emoji ?? ""
-        self.serveEmoji = emoji.isEmpty ? nil : emoji
+        let serveInfo = Self.extractServeInfo(from: serve)
+        self.serveShortName = serveInfo.shortName
+        self.serveEmoji = serveInfo.emoji
         self.receiveEmoji = receive?.emoji
         self.rallyEmojis = rallies.map { $0.emoji }
     }
     
     init(point: Point) {
+        // Extract serve info
         if let serveTypeString = point.serveType,
            let serveType = ServeType(rawValue: serveTypeString) {
-            self.serveShortName = serveType.shortName
-            let emoji = serveType.emoji
-            self.serveEmoji = emoji.isEmpty ? nil : emoji
+            let serveInfo = Self.extractServeInfo(from: serveType)
+            self.serveShortName = serveInfo.shortName
+            self.serveEmoji = serveInfo.emoji
         } else {
             self.serveShortName = nil
             self.serveEmoji = nil
         }
         
-        self.receiveEmoji = point.strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
+        // Extract receive info - use actual type if available, otherwise fall back to generic fruit emoji
+        if let receiveTypeString = point.receiveType,
+           let receiveType = ReceiveType(rawValue: receiveTypeString) {
+            self.receiveEmoji = receiveType.emoji
+        } else {
+            // Fall back to generic fruit emoji for older points without receive type data
+            self.receiveEmoji = point.strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
+        }
         
-        // Use actual rally types if available, otherwise fall back to generic animal emoji
+        // Extract rally info - use actual types if available, otherwise fall back to generic animal emoji
         if !point.rallyTypes.isEmpty {
             self.rallyEmojis = point.rallyTypes.compactMap { rallyTypeString in
                 RallyType(rawValue: rallyTypeString)?.emoji
@@ -59,17 +124,17 @@ struct StrokeSequenceView: View {
                 }
             }
             
-            // Arrow separator if we have serve and receive
-            if serveShortName != nil && receiveEmoji != nil {
-                Text("→")
-                    .foregroundColor(.secondary.opacity(0.5))
-                    .font(.system(size: 14))
-            }
-            
             // Receive: emoji
             if let receiveEmoji = receiveEmoji {
                 Text(receiveEmoji)
                     .font(.system(size: 18))
+            }
+            
+            // Arrow separator after receive if we have receive and rallies
+            if receiveEmoji != nil && !rallyEmojis.isEmpty {
+                Text("→")
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .font(.system(size: 14))
             }
             
             // Rally: emojis
@@ -92,8 +157,6 @@ struct ServeTypeButton: View {
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     
-    @State private var tapTask: DispatchWorkItem?
-    
     var body: some View {
         VStack(spacing: 6) {
             Text(serveType.shortName)
@@ -107,32 +170,8 @@ struct ServeTypeButton: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(12)
         .aspectRatio(1, contentMode: .fit)
-        .background(
-            isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
-        )
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            TapGesture(count: 2)
-                .onEnded { _ in
-                    // Double tap - ace serve
-                    tapTask?.cancel()
-                    onDoubleTap()
-                }
-        )
-        .onTapGesture {
-            // Single tap - select serve (with delay to detect double tap)
-            tapTask?.cancel()
-            let task = DispatchWorkItem {
-                onTap()
-            }
-            tapTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-        }
+        .buttonStyle(isSelected: isSelected)
+        .onDoubleTap(singleTap: onTap, doubleTap: onDoubleTap)
     }
 }
 
@@ -142,8 +181,6 @@ struct ReceiveTypeButton: View {
     let isSelected: Bool
     let onTap: () -> Void
     let onDoubleTap: () -> Void
-    
-    @State private var tapTask: DispatchWorkItem?
     
     var body: some View {
         VStack(spacing: 6) {
@@ -156,33 +193,9 @@ struct ReceiveTypeButton: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(12)
-        .background(
-            isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
-        )
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
         .aspectRatio(1, contentMode: .fit)
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            TapGesture(count: 2)
-                .onEnded { _ in
-                    // Double tap - good receive scoring point
-                    tapTask?.cancel()
-                    onDoubleTap()
-                }
-        )
-        .onTapGesture {
-            // Single tap - select receive (with delay to detect double tap)
-            tapTask?.cancel()
-            let task = DispatchWorkItem {
-                onTap()
-            }
-            tapTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-        }
+        .buttonStyle(isSelected: isSelected)
+        .onDoubleTap(singleTap: onTap, doubleTap: onDoubleTap)
     }
 }
 
@@ -204,14 +217,7 @@ struct RallyTypeButton: View {
             .frame(maxWidth: .infinity)
             .aspectRatio(1, contentMode: .fit)
             .padding(16)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
-            )
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
+            .buttonStyle(isSelected: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -237,14 +243,7 @@ struct OutcomeButton: View {
             .frame(maxWidth: .infinity)
             .aspectRatio(0.85, contentMode: .fit)
             .padding(12)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.08)
-            )
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
+            .buttonStyle(isSelected: isSelected)
         }
         .buttonStyle(.plain)
     }

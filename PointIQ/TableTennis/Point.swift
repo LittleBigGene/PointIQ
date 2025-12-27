@@ -16,6 +16,7 @@ final class Point {
     var match: Match?
     var game: Game?
     var serveType: String?
+    var receiveType: String? // Store specific receive type
     var rallyTypes: [String] // Store specific rally types
     
     init(
@@ -25,6 +26,7 @@ final class Point {
         match: Match? = nil,
         game: Game? = nil,
         serveType: String? = nil,
+        receiveType: String? = nil,
         rallyTypes: [String] = []
     ) {
         self.timestamp = timestamp
@@ -33,6 +35,7 @@ final class Point {
         self.match = match
         self.game = game
         self.serveType = serveType
+        self.receiveType = receiveType
         self.rallyTypes = rallyTypes
     }
     
