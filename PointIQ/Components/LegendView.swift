@@ -160,7 +160,7 @@ struct LegendView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             RuleRow(
                                 title: "Points to Win",
-                                description: "\(TableTennisRules.pointsToWinGame) points"
+                                description: "\(Rules.pointsToWinGame) points"
                             )
                             RuleRow(
                                 title: "Win by 2",

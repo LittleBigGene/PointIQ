@@ -57,28 +57,28 @@ final class Game {
     // MARK: - Game Rules Logic
     
     var isComplete: Bool {
-        TableTennisRules.isGameComplete(
+        Rules.isGameComplete(
             playerPoints: pointsWon,
             opponentPoints: pointsLost
         )
     }
     
     var winner: Bool? {
-        TableTennisRules.gameWinner(
+        Rules.gameWinner(
             playerPoints: pointsWon,
             opponentPoints: pointsLost
         )
     }
     
     var isDeuce: Bool {
-        TableTennisRules.isDeuce(
+        Rules.isDeuce(
             playerPoints: pointsWon,
             opponentPoints: pointsLost
         )
     }
     
     var statusMessage: String {
-        TableTennisRules.gameStatus(
+        Rules.gameStatus(
             playerPoints: pointsWon,
             opponentPoints: pointsLost
         )
