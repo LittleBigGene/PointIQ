@@ -16,6 +16,7 @@ struct QuickLoggingView: View {
     @Binding var lastPoint: Point?
     @Binding var isVoiceInputActive: Bool
     let pointHistoryHeightRatio: Double
+    @Binding var manualSwapOverride: Bool
     let onPointLogged: (Point) -> Void
     let onUndo: () -> Void
     
@@ -33,6 +34,12 @@ struct QuickLoggingView: View {
     // Determine who is serving for the NEXT point
     private var isPlayerServing: Bool {
         currentGame?.isPlayerServingNext ?? true // Default to player serving
+    }
+    
+    // Determine if players should be swapped (combines automatic and manual override)
+    private var shouldSwapPlayers: Bool {
+        guard let game = currentGame else { return false }
+        return GameSideSwap.shouldSwapPlayers(gameNumber: game.gameNumber, manualSwapOverride: manualSwapOverride)
     }
     
     // Hide outcomes when point history is tall (above 0.55)
@@ -83,7 +90,9 @@ struct QuickLoggingView: View {
     }
     
     private var placeholderText: (left: String, right: String) {
-        isPlayerServing ? ("Serve", "Receive") : ("Receive", "Serve")
+        // Left side serves when: not swapped and player serves, OR swapped and opponent serves
+        let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
+        return leftIsServing ? ("Serve", "Receive") : ("Receive", "Serve")
     }
     
     private var previewHeader: some View {
@@ -171,14 +180,16 @@ struct QuickLoggingView: View {
     
     private var serveReceiveContent: some View {
         HStack(alignment: .top, spacing: 0) {
-            if isPlayerServing {
-                // Player is serving: left = serve, right = receive
+            // Left side serves when: not swapped and player serves, OR swapped and opponent serves
+            let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
+            if leftIsServing {
+                // Left side is serving: left = serve, right = receive
                 serveSection
                 Divider()
                     .frame(width: 1)
                 receiveSection
             } else {
-                // Opponent is serving: left = receive, right = serve
+                // Right side is serving: left = receive, right = serve
                 receiveSection
                 Divider()
                     .frame(width: 1)

@@ -20,12 +20,9 @@ struct PointHistoryView: View {
         var seenIDs = Set<String>()
         
         // Add stored points from all games in the match
-        if let match = match {
-            let matchStoredPoints = storedPoints
-            for pointData in matchStoredPoints where !seenIDs.contains(pointData.id) {
-                points.append((id: pointData.id, timestamp: pointData.timestamp, isStored: true, gameNumber: pointData.gameNumber ?? 1))
-                seenIDs.insert(pointData.id)
-            }
+        for pointData in storedPoints where !seenIDs.contains(pointData.id) {
+            points.append((id: pointData.id, timestamp: pointData.timestamp, isStored: true, gameNumber: pointData.gameNumber ?? 1))
+            seenIDs.insert(pointData.id)
         }
         
         // Add SwiftData points from all games (prefer over stored points if duplicate ID)

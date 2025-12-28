@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var lastPoint: Point?
     @State private var isVoiceInputActive = false
     @State private var showResetMatchConfirmation = false
+    @State private var manualSwapOverride: Bool = false
     @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
     
     var body: some View {
@@ -31,6 +32,7 @@ struct ContentView: View {
                         game: currentGame,
                         modelContext: modelContext,
                         isLandscape: isLandscape,
+                        manualSwapOverride: $manualSwapOverride,
                         onStartNewGame: {
                             startNewGame()
                         },
@@ -76,6 +78,7 @@ struct ContentView: View {
                             lastPoint: $lastPoint,
                             isVoiceInputActive: $isVoiceInputActive,
                             pointHistoryHeightRatio: pointHistoryHeightRatio,
+                            manualSwapOverride: $manualSwapOverride,
                             onPointLogged: { point in
                                 logPoint(point)
                             },
@@ -168,7 +171,11 @@ struct ContentView: View {
                 game = existingGame
             } else {
                 // Create game if it doesn't exist
-                let newGame = Game(match: match, gameNumber: gameNumber)
+                // Determine who serves first: alternate after each game
+                let previousGame = gamesByNumber[gameNumber - 1]
+                let playerServesFirst = GameSideSwap.determinePlayerServesFirst(gameNumber: gameNumber, previousGame: previousGame)
+                
+                let newGame = Game(match: match, gameNumber: gameNumber, playerServesFirst: playerServesFirst)
                 modelContext.insert(newGame)
                 gamesByNumber[gameNumber] = newGame
                 game = newGame
@@ -239,7 +246,12 @@ struct ContentView: View {
     private func startNewGame() {
         guard let match = currentMatch else { return }
         let gameNumber = (match.games?.count ?? 0) + 1
-        let newGame = Game(match: match, gameNumber: gameNumber)
+        
+        // Determine who serves first: alternate after each game
+        let previousGame = match.games?.sorted(by: { $0.gameNumber > $1.gameNumber }).first
+        let playerServesFirst = GameSideSwap.determinePlayerServesFirst(previousGame: previousGame)
+        
+        let newGame = Game(match: match, gameNumber: gameNumber, playerServesFirst: playerServesFirst)
         modelContext.insert(newGame)
         currentGame = newGame
         try? modelContext.save()
