@@ -86,7 +86,6 @@ struct ScoreboardView: View {
     private func leftColumn(game: Game, match: Match, isPlayer: Bool) -> some View {
         let label = isPlayer ? "YOU" : "OPP"
         let score = isPlayer ? game.pointsWon : game.pointsLost
-        let isWinner = isPlayer ? (game.winner == true) : (game.winner == false)
         // Serve indicator is based on position (left side), not player identity
         // Left side serves when: not swapped and player serves, OR swapped and opponent serves
         let isServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
@@ -149,7 +148,6 @@ struct ScoreboardView: View {
     private func rightColumn(game: Game, match: Match, isPlayer: Bool) -> some View {
         let label = isPlayer ? "YOU" : "OPP"
         let score = isPlayer ? game.pointsWon : game.pointsLost
-        let isWinner = isPlayer ? (game.winner == true) : (game.winner == false)
         // Serve indicator is based on position (right side), not player identity
         // Right side serves when: not swapped and opponent serves, OR swapped and player serves
         let isServing = shouldSwapPlayers ? isPlayerServing : !isPlayerServing
@@ -213,8 +211,6 @@ struct ScoreboardView: View {
         // Swap match scores when players are swapped
         let leftScore = shouldSwapPlayers ? match.gamesLost : match.gamesWon
         let rightScore = shouldSwapPlayers ? match.gamesWon : match.gamesLost
-        let leftIsWinner = shouldSwapPlayers ? (match.winner == false) : (match.winner == true)
-        let rightIsWinner = shouldSwapPlayers ? (match.winner == true) : (match.winner == false)
         
         VStack(alignment: .center, spacing: spacing) {
             Text("MATCH")
