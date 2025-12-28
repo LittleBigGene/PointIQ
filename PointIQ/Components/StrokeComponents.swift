@@ -1,5 +1,5 @@
 //
-//  ButtonComponents.swift
+//  StrokeComponents.swift
 //  PointIQ
 //
 //  Created by Jin Cai on 12/24/25.
@@ -163,13 +163,6 @@ struct StrokeSequenceView: View {
             if let receiveEmoji = receiveEmoji {
                 Text(receiveEmoji)
                     .font(.system(size: 18))
-            }
-            
-            // Arrow separator after receive if we have receive and rallies
-            if receiveEmoji != nil && !rallyEmojis.isEmpty {
-                Text("→")
-                    .foregroundColor(.secondary.opacity(0.5))
-                    .font(.system(size: 14))
             }
             
             // Rally: emojis
