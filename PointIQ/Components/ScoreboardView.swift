@@ -29,19 +29,9 @@ struct ScoreboardView: View {
     private var spacing: CGFloat { isLandscape ? 24 : 8 }
     private let tabBarHeight: CGFloat = 83
     
-    // Determine who is serving based on point count (serve switches every 2 points)
+    // Determine who is serving for the NEXT point
     private var isPlayerServing: Bool {
-        guard let game = game else { return true } // Default to player serving
-        let pointCount = game.pointCount
-        let playerServesFirst = game.playerServesFirst
-        
-        if playerServesFirst {
-            // Points 1-2: player serves, Points 3-4: opponent serves, etc.
-            return (pointCount % 4) < 2
-        } else {
-            // Points 1-2: opponent serves, Points 3-4: player serves, etc.
-            return (pointCount % 4) >= 2
-        }
+        game?.isPlayerServingNext ?? true // Default to player serving
     }
     
     var body: some View {

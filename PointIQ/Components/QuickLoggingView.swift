@@ -30,19 +30,9 @@ struct QuickLoggingView: View {
         selectedServe != nil && selectedReceive != nil
     }
     
-    // Determine who is serving based on point count (serve switches every 2 points)
+    // Determine who is serving for the NEXT point
     private var isPlayerServing: Bool {
-        guard let game = currentGame else { return true } // Default to player serving
-        let pointCount = game.pointCount
-        let playerServesFirst = game.playerServesFirst
-        
-        if playerServesFirst {
-            // Points 1-2: player serves, Points 3-4: opponent serves, etc.
-            return (pointCount % 4) < 2
-        } else {
-            // Points 1-2: opponent serves, Points 3-4: player serves, etc.
-            return (pointCount % 4) >= 2
-        }
+        currentGame?.isPlayerServingNext ?? true // Default to player serving
     }
     
     // Hide outcomes when point history is tall (above 0.55)

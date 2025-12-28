@@ -86,5 +86,37 @@ final class Game {
             opponentPoints: pointsLost
         )
     }
+    
+    // MARK: - Serve Rotation Logic
+    
+    /// Determines who is serving for the NEXT point
+    /// - Before either player reaches 11: serve alternates every 2 points
+    /// - After either player reaches 11: serve alternates every 1 point
+    var isPlayerServingNext: Bool {
+        let playerPoints = pointsWon
+        let opponentPoints = pointsLost
+        
+        // Check if either player has reached 11 points
+        let hasReached11 = playerPoints >= 11 || opponentPoints >= 11
+        
+        if hasReached11 {
+            // After either player reaches 11, serve alternates every point
+            // Use pointCount to determine who serves next (alternates every point)
+            if playerServesFirst {
+                return pointCount % 2 == 0
+            } else {
+                return pointCount % 2 == 1
+            }
+        } else {
+            // Before 11, serve alternates every 2 points
+            // Block 0: points 1-2, Block 1: points 3-4, Block 2: points 5-6, etc.
+            let nextPointBlock = pointCount / 2
+            if playerServesFirst {
+                return nextPointBlock % 2 == 0
+            } else {
+                return nextPointBlock % 2 == 1
+            }
+        }
+    }
 }
 

@@ -118,6 +118,8 @@ struct ContentView: View {
            match.isActive {
             currentMatch = match
             currentGame = match.currentGame
+            // Restore points from local storage to SwiftData
+            restorePointsFromStorage()
         } else {
             // No valid stored match, start a new one
             if currentMatch == nil {
@@ -128,12 +130,110 @@ struct ContentView: View {
         }
     }
     
+    private func restorePointsFromStorage() {
+        guard let match = currentMatch else { return }
+        
+        let storedPoints = PointHistoryStorage.shared.loadAllPoints()
+        guard !storedPoints.isEmpty else { return }
+        
+        // Collect all existing point IDs from all games
+        var existingPointIDs = Set<String>()
+        if let games = match.games {
+            for game in games {
+                if let points = game.points {
+                    existingPointIDs.formUnion(points.map { $0.uniqueID })
+                }
+            }
+        }
+        
+        // Group points by gameNumber to ensure games exist
+        var gamesByNumber: [Int: Game] = [:]
+        if let existingGames = match.games {
+            for game in existingGames {
+                gamesByNumber[game.gameNumber] = game
+            }
+        }
+        
+        for pointData in storedPoints {
+            // Skip if point already exists in SwiftData
+            if existingPointIDs.contains(pointData.id) {
+                continue
+            }
+            
+            // Find or create the game for this point
+            let game: Game
+            let gameNumber = pointData.gameNumber ?? 1
+            
+            if let existingGame = gamesByNumber[gameNumber] {
+                game = existingGame
+            } else {
+                // Create game if it doesn't exist
+                let newGame = Game(match: match, gameNumber: gameNumber)
+                modelContext.insert(newGame)
+                gamesByNumber[gameNumber] = newGame
+                game = newGame
+                
+                // Update currentGame if this is the highest game number
+                if gameNumber >= (currentGame?.gameNumber ?? 0) {
+                    currentGame = game
+                }
+            }
+            
+            // Convert PointData back to Point
+            guard let outcome = Outcome(rawValue: pointData.outcome) else { continue }
+            let strokeTokens = pointData.strokeTokens.compactMap { StrokeToken(rawValue: $0) }
+            
+            let point = Point(
+                timestamp: pointData.timestamp,
+                strokeTokens: strokeTokens,
+                outcome: outcome,
+                match: match,
+                game: game,
+                serveType: pointData.serveType,
+                receiveType: pointData.receiveType,
+                rallyTypes: pointData.rallyTypes
+            )
+            
+            modelContext.insert(point)
+        }
+        
+        do {
+            try modelContext.save()
+            
+            // Ensure currentGame is set correctly after restoration
+            if let match = currentMatch {
+                // Find the game with the highest number that has points, or use the active game
+                if let games = match.games {
+                    // First, try to find a game with points
+                    let gamesWithPoints = games.filter { game in
+                        // Force relationship to load by accessing it
+                        let pointCount = game.points?.count ?? 0
+                        return pointCount > 0
+                    }
+                    
+                    if let latestGame = gamesWithPoints.sorted(by: { $0.gameNumber > $1.gameNumber }).first {
+                        currentGame = latestGame
+                    } else if let activeGame = match.currentGame {
+                        currentGame = activeGame
+                    } else if let firstGame = games.first {
+                        currentGame = firstGame
+                    }
+                }
+            }
+        } catch {
+            print("Error restoring points from storage: \(error)")
+        }
+    }
+    
     private func startNewMatch() {
         let newMatch = Match()
         modelContext.insert(newMatch)
         currentMatch = newMatch
         startNewGame()
         try? modelContext.save()
+        
+        // Restore points from local storage if they exist
+        restorePointsFromStorage()
     }
     
     private func startNewGame() {
