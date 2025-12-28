@@ -1,5 +1,5 @@
 //
-//  TableTennisRules.swift
+//  Rules.swift
 //  PointIQ
 //
 //  Created by Jin Cai on 12/24/25.
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Table Tennis Rules and Business Logic
-struct TableTennisRules {
+struct Rules {
     
     // MARK: - Game Rules
     

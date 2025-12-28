@@ -18,10 +18,10 @@ enum Outcome: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .myWinner: return "Cho-le"        
-        case .opponentError: return "Opponent's Error"
-        case .myError: return "My Error"
+        case .opponentError: return "Opp Err"
+        case .myError: return "My Err"
         case .iMissed: return "I Missed"
-        case .unlucky: return "Net and/or edge"
+        case .unlucky: return "Net/Edge"
         }
     }
     

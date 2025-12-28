@@ -17,24 +17,34 @@ struct ContentView: View {
     @State private var lastPoint: Point?
     @State private var isVoiceInputActive = false
     @State private var showResetMatchConfirmation = false
+    @State private var manualSwapOverride: Bool = false
+    @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
     
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
+                let isLandscape = geometry.size.width > geometry.size.height
+                
                 VStack(spacing: 0) {
                     // Top Section: Official Scoreboard
                     ScoreboardView(
                         match: currentMatch,
                         game: currentGame,
                         modelContext: modelContext,
+                        isLandscape: isLandscape,
+                        manualSwapOverride: $manualSwapOverride,
                         onStartNewGame: {
                             startNewGame()
                         },
                         onResetMatch: {
                             showResetMatchConfirmation = true
+                        },
+                        onResetMatchDirect: {
+                            resetMatch()
                         }
                     )
-                    .frame(height: geometry.size.height * 0.20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, isLandscape ? 20 : 0) // Move scoreboard down in landscape
 #if os(iOS) || os(tvOS) || os(visionOS)
                     .background(Color(UIColor.systemBackground))
 #elseif os(macOS)
@@ -43,32 +53,41 @@ struct ContentView: View {
                     .background(Color.background)
 #endif
                     
-                    Divider()
-                    
-                    // Middle Section: Point History
-                    PointHistoryView(
-                        match: currentMatch,
-                        game: currentGame
-                    )
-                    .frame(height: geometry.size.height * 0.45)
-                    .background(Color.secondary.opacity(0.05))
-                    
-                    Divider()
-                    
-                    // Bottom Section: Quick Logging Buttons
-                    QuickLoggingView(
-                        currentMatch: $currentMatch,
-                        currentGame: $currentGame,
-                        lastPoint: $lastPoint,
-                        isVoiceInputActive: $isVoiceInputActive,
-                        onPointLogged: { point in
-                            logPoint(point)
-                        },
-                        onUndo: {
-                            undoLastPoint()
-                        }
-                    )
-                    .frame(height: geometry.size.height * 0.35)
+                    if !isLandscape {
+                        Divider()
+                        
+                        // Middle Section: Point History
+                        PointHistoryView(
+                            match: currentMatch,
+                            game: currentGame
+                        )
+                        .frame(height: geometry.size.height * pointHistoryHeightRatio)
+                        .background(Color.secondary.opacity(0.05))
+                        
+                        // Resizable divider
+                        ResizableDivider(
+                            heightRatio: $pointHistoryHeightRatio,
+                            totalHeight: geometry.size.height,
+                            topSectionHeight: geometry.size.height * 0.20
+                        )
+                        
+                        // Bottom Section: Quick Logging Buttons
+                        QuickLoggingView(
+                            currentMatch: $currentMatch,
+                            currentGame: $currentGame,
+                            lastPoint: $lastPoint,
+                            isVoiceInputActive: $isVoiceInputActive,
+                            pointHistoryHeightRatio: pointHistoryHeightRatio,
+                            manualSwapOverride: $manualSwapOverride,
+                            onPointLogged: { point in
+                                logPoint(point)
+                            },
+                            onUndo: {
+                                undoLastPoint()
+                            }
+                        )
+                        .frame(height: geometry.size.height * (1.0 - 0.20 - pointHistoryHeightRatio))
+                    }
                 }
             }
         }
@@ -102,6 +121,8 @@ struct ContentView: View {
            match.isActive {
             currentMatch = match
             currentGame = match.currentGame
+            // Restore points from local storage to SwiftData
+            restorePointsFromStorage()
         } else {
             // No valid stored match, start a new one
             if currentMatch == nil {
@@ -112,18 +133,125 @@ struct ContentView: View {
         }
     }
     
+    private func restorePointsFromStorage() {
+        guard let match = currentMatch else { return }
+        
+        let storedPoints = PointHistoryStorage.shared.loadAllPoints()
+        guard !storedPoints.isEmpty else { return }
+        
+        // Collect all existing point IDs from all games
+        var existingPointIDs = Set<String>()
+        if let games = match.games {
+            for game in games {
+                if let points = game.points {
+                    existingPointIDs.formUnion(points.map { $0.uniqueID })
+                }
+            }
+        }
+        
+        // Group points by gameNumber to ensure games exist
+        var gamesByNumber: [Int: Game] = [:]
+        if let existingGames = match.games {
+            for game in existingGames {
+                gamesByNumber[game.gameNumber] = game
+            }
+        }
+        
+        for pointData in storedPoints {
+            // Skip if point already exists in SwiftData
+            if existingPointIDs.contains(pointData.id) {
+                continue
+            }
+            
+            // Find or create the game for this point
+            let game: Game
+            let gameNumber = pointData.gameNumber ?? 1
+            
+            if let existingGame = gamesByNumber[gameNumber] {
+                game = existingGame
+            } else {
+                // Create game if it doesn't exist
+                // Determine who serves first: alternate after each game
+                let previousGame = gamesByNumber[gameNumber - 1]
+                let playerServesFirst = GameSideSwap.determinePlayerServesFirst(gameNumber: gameNumber, previousGame: previousGame)
+                
+                let newGame = Game(match: match, gameNumber: gameNumber, playerServesFirst: playerServesFirst)
+                modelContext.insert(newGame)
+                gamesByNumber[gameNumber] = newGame
+                game = newGame
+                
+                // Update currentGame if this is the highest game number
+                if gameNumber >= (currentGame?.gameNumber ?? 0) {
+                    currentGame = game
+                }
+            }
+            
+            // Convert PointData back to Point
+            guard let outcome = Outcome(rawValue: pointData.outcome) else { continue }
+            let strokeTokens = pointData.strokeTokens.compactMap { StrokeToken(rawValue: $0) }
+            
+            let point = Point(
+                timestamp: pointData.timestamp,
+                strokeTokens: strokeTokens,
+                outcome: outcome,
+                match: match,
+                game: game,
+                serveType: pointData.serveType,
+                receiveType: pointData.receiveType,
+                rallyTypes: pointData.rallyTypes
+            )
+            
+            modelContext.insert(point)
+        }
+        
+        do {
+            try modelContext.save()
+            
+            // Ensure currentGame is set correctly after restoration
+            if let match = currentMatch {
+                // Find the game with the highest number that has points, or use the active game
+                if let games = match.games {
+                    // First, try to find a game with points
+                    let gamesWithPoints = games.filter { game in
+                        // Force relationship to load by accessing it
+                        let pointCount = game.points?.count ?? 0
+                        return pointCount > 0
+                    }
+                    
+                    if let latestGame = gamesWithPoints.sorted(by: { $0.gameNumber > $1.gameNumber }).first {
+                        currentGame = latestGame
+                    } else if let activeGame = match.currentGame {
+                        currentGame = activeGame
+                    } else if let firstGame = games.first {
+                        currentGame = firstGame
+                    }
+                }
+            }
+        } catch {
+            print("Error restoring points from storage: \(error)")
+        }
+    }
+    
     private func startNewMatch() {
         let newMatch = Match()
         modelContext.insert(newMatch)
         currentMatch = newMatch
         startNewGame()
         try? modelContext.save()
+        
+        // Restore points from local storage if they exist
+        restorePointsFromStorage()
     }
     
     private func startNewGame() {
         guard let match = currentMatch else { return }
         let gameNumber = (match.games?.count ?? 0) + 1
-        let newGame = Game(match: match, gameNumber: gameNumber)
+        
+        // Determine who serves first: alternate after each game
+        let previousGame = match.games?.sorted(by: { $0.gameNumber > $1.gameNumber }).first
+        let playerServesFirst = GameSideSwap.determinePlayerServesFirst(previousGame: previousGame)
+        
+        let newGame = Game(match: match, gameNumber: gameNumber, playerServesFirst: playerServesFirst)
         modelContext.insert(newGame)
         currentGame = newGame
         try? modelContext.save()
@@ -139,11 +267,21 @@ struct ContentView: View {
     
     private func logPoint(_ point: Point) {
         guard let match = currentMatch, let game = currentGame else { return }
+        
+        // Set relationships before inserting
         point.match = match
         point.game = game
         modelContext.insert(point)
         lastPoint = point
-        try? modelContext.save()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving point: \(error)")
+        }
+        
+        // Save point to local storage
+        PointHistoryStorage.shared.savePoint(point, gameNumber: game.gameNumber)
         
         // Check if game is complete
         if game.isComplete {
@@ -166,9 +304,13 @@ struct ContentView: View {
     
     private func undoLastPoint() {
         guard let point = lastPoint else { return }
+        let pointID = point.uniqueID
         modelContext.delete(point)
         lastPoint = nil
         try? modelContext.save()
+        
+        // Remove point from local storage by ID
+        PointHistoryStorage.shared.removePoint(byID: pointID)
     }
     
     private func resetMatch() {
@@ -191,512 +333,12 @@ struct ContentView: View {
             lastPoint = nil
             try? modelContext.save()
             
+            // Clear local point history storage
+            PointHistoryStorage.shared.clearAllPoints()
+            
             // Start a new match
             startNewMatch()
         }
-    }
-}
-
-// MARK: - Scoreboard View (Top Section)
-struct ScoreboardView: View {
-    let match: Match?
-    let game: Game?
-    let modelContext: ModelContext
-    let onStartNewGame: () -> Void
-    let onResetMatch: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            if let match = match, let game = game {
-                // Single row with 3 columns: Game Points (YOU) | Match Games | Game Points (OPP)
-                HStack(spacing: 0) {
-                    // Column 1: YOU Game Points
-                    VStack(spacing: 8) {
-                        Text("YOU")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
-                        Text("\(game.pointsWon)")
-                            .font(.system(size: 56, weight: .bold, design: .rounded))
-                            .foregroundColor(game.isComplete && game.winner == true ? .green : .primary)                        
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
-                            .onEnded { value in
-                                let verticalMovement = value.translation.height
-                                if abs(verticalMovement) > abs(value.translation.width) {
-                                    if game.isComplete {
-                                        // Game is complete - end game and start new one
-                                        resetGame(game: game, match: match)
-                                    } else {
-                                        if verticalMovement < 0 {
-                                            // Swipe up - increase score
-                                            increasePlayerScore(game: game, match: match)
-                                        } else {
-                                            // Swipe down - decrease score
-                                            decreasePlayerScore(game: game, match: match)
-                                        }
-                                    }
-                                }
-                            }
-                    )
-                    
-                    // Column 2: Match Games Counter
-                    VStack(spacing: 8) {
-                        Text("MATCH")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
-                        HStack(spacing: 16) {
-                            Text("\(match.gamesWon)")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(match.isComplete && match.winner == true ? .green : .primary)
-                            Text(":")
-                                .font(.system(size: 32, weight: .light))
-                                .foregroundColor(.secondary)
-                            Text("\(match.gamesLost)")
-                                .font(.system(size: 40, weight: .bold, design: .rounded))
-                                .foregroundColor(match.isComplete && match.winner == false ? .red : .primary)
-                        }
-                        // Status indicator
-                        if game.isComplete {
-                            Text(game.winner == true ? "GAME WON" : "GAME LOST")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(game.winner == true ? .green : .red)
-                        } else if game.isDeuce {
-                            Text("DEUCE")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.orange)
-                        } else {
-                            let status = game.statusMessage
-                            if status == "Game Point" {
-                                Text("GAME POINT")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.orange)
-                            } else {
-                                Text(" ")
-                                    .font(.system(size: 10))
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
-                    .background(Color.secondary.opacity(0.1))
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
-                            .onEnded { value in
-                                let horizontalMovement = value.translation.width
-                                let verticalMovement = value.translation.height
-                                // Swipe left or right to reset match (only if match has games)
-                                if abs(horizontalMovement) > abs(verticalMovement) && abs(horizontalMovement) > 50 {
-                                    // Only reset if match counter is not 0:0
-                                    if match.gamesWon > 0 || match.gamesLost > 0 {
-                                        onResetMatch()
-                                    }
-                                }
-                            }
-                    )
-                    
-                    // Column 3: OPP Game Points
-                    VStack(spacing: 8) {
-                        Text("OPP")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.secondary)
-                        Text("\(game.pointsLost)")
-                            .font(.system(size: 56, weight: .bold, design: .rounded))
-                            .foregroundColor(game.isComplete && game.winner == false ? .red : .primary)
-                        if let opponent = match.opponentName {
-                            Text(opponent.uppercased())
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text(" ")
-                                .font(.system(size: 10))
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
-                            .onEnded { value in
-                                let verticalMovement = value.translation.height
-                                if abs(verticalMovement) > abs(value.translation.width) {
-                                    if game.isComplete {
-                                        // Game is complete - end game and start new one
-                                        resetGame(game: game, match: match)
-                                    } else {
-                                        if verticalMovement < 0 {
-                                            // Swipe up - increase opponent score
-                                            increaseOpponentScore(game: game, match: match)
-                                        } else {
-                                            // Swipe down - decrease opponent score
-                                            decreaseOpponentScore(game: game, match: match)
-                                        }
-                                    }
-                                }
-                            }
-                    )
-                }
-            } else {
-                VStack {
-                    Spacer()
-                    Text("No Active Match")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    // MARK: - Score Adjustment Functions
-    
-    private func resetGame(game: Game, match: Match) {
-        // If game is complete, end it and start a new game
-        if game.isComplete {
-            // Mark current game as complete
-            game.endDate = Date()
-            try? modelContext.save()
-            
-            // Start a new game
-            onStartNewGame()
-        } else {
-            // If game is not complete, just delete all points to reset to 0:0
-            if let points = game.points {
-                for point in points {
-                    modelContext.delete(point)
-                }
-                try? modelContext.save()
-            }
-        }
-    }
-    
-    private func increasePlayerScore(game: Game, match: Match) {
-        let point = Point(
-            strokeTokens: [],
-            outcome: .myWinner,
-            match: match,
-            game: game
-        )
-        modelContext.insert(point)
-        try? modelContext.save()
-    }
-    
-    private func decreasePlayerScore(game: Game, match: Match) {
-        // Find and remove the most recent point with outcome .winner
-        if let points = game.points {
-            let winnerPoints = points.filter { $0.outcome == .myWinner }
-            if let lastWinnerPoint = winnerPoints.sorted(by: { $0.timestamp > $1.timestamp }).first {
-                modelContext.delete(lastWinnerPoint)
-                try? modelContext.save()
-            }
-        }
-    }
-    
-    private func increaseOpponentScore(game: Game, match: Match) {
-        let point = Point(
-            strokeTokens: [],
-            outcome: .iMissed,
-            match: match,
-            game: game
-        )
-        modelContext.insert(point)
-        try? modelContext.save()
-    }
-    
-    private func decreaseOpponentScore(game: Game, match: Match) {
-        // Find and remove the most recent point with outcome .iMissed
-        if let points = game.points {
-            let opponentPoints = points.filter { $0.outcome == .iMissed }
-            if let lastOpponentPoint = opponentPoints.sorted(by: { $0.timestamp > $1.timestamp }).first {
-                modelContext.delete(lastOpponentPoint)
-                try? modelContext.save()
-            }
-        }
-    }
-}
-
-// MARK: - Point History View (Middle Section)
-struct PointHistoryView: View {
-    let match: Match?
-    let game: Game?
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Point History")
-                    .font(.headline)
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-                Spacer()
-            }
-            
-            if let game = game, let points = game.points, !points.isEmpty {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(points.sorted(by: { $0.timestamp > $1.timestamp })), id: \.uniqueID) { point in
-                            PointHistoryRow(point: point)
-                        }
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                HStack {
-                    Spacer()
-                    Text("No points logged yet")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .padding()
-                    Spacer()
-                }
-                .frame(maxHeight: .infinity)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-// MARK: - Point History Row
-struct PointHistoryRow: View {
-    let point: Point
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Outcome emoji
-            Text(point.outcome.emoji)
-                .font(.system(size: 24))
-                .frame(width: 40)
-            
-            // Strokes
-            if !point.strokeTokens.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(point.strokeTokens, id: \.self) { stroke in
-                        Text(stroke.emoji)
-                            .font(.system(size: 18))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text("—")
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            
-            // Outcome name
-            Text(point.outcome.displayName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 120, alignment: .trailing)
-            
-            // Time
-            Text(point.timestamp, style: .time)
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .trailing)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 12)
-        .background(
-            point.outcome == .myWinner ? Color.green.opacity(0.08) :
-            point.outcome == .iMissed ? Color.red.opacity(0.08) :
-            Color.clear
-        )
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(Color.secondary.opacity(0.1)),
-            alignment: .bottom
-        )
-    }
-}
-
-// MARK: - Quick Logging View (Bottom Section)
-struct QuickLoggingView: View {
-    @Binding var currentMatch: Match?
-    @Binding var currentGame: Game?
-    @Binding var lastPoint: Point?
-    @Binding var isVoiceInputActive: Bool
-    let onPointLogged: (Point) -> Void
-    let onUndo: () -> Void
-    
-    @State private var currentStrokes: [StrokeToken] = []
-    @State private var selectedOutcome: Outcome?
-    @State private var showingConfirmation = false
-    @State private var confirmationEmoji = ""
-    
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Current strokes indicator
-                if !currentStrokes.isEmpty {
-                    HStack(spacing: 12) {
-                        ForEach(currentStrokes, id: \.self) { stroke in
-                            Text(stroke.emoji)
-                                .font(.system(size: 24))
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                
-                // Stroke buttons row
-                HStack(spacing: 8) {
-                    ForEach(StrokeToken.allCases, id: \.self) { stroke in
-                        Button(action: {
-                            addStroke(stroke)
-                        }) {
-                            VStack(spacing: 2) {
-                                Text(stroke.emoji)
-                                    .font(.system(size: 24))
-                                Text(stroke.displayName)
-                                    .font(.system(size: 10, weight: .medium))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(10)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-                
-                // Outcome buttons (2x2 grid)
-                if !currentStrokes.isEmpty {
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 8) {
-                        ForEach(Outcome.allCases, id: \.self) { outcome in
-                            OutcomeButton(
-                                outcome: outcome,
-                                isSelected: selectedOutcome == outcome
-                            ) {
-                                selectedOutcome = outcome
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                
-                // Undo button
-                if lastPoint != nil {
-                    Button(action: {
-                        onUndo()
-                        resetInput()
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.uturn.backward")
-                            Text("Undo")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(.red)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.red.opacity(0.1))
-                        .cornerRadius(10)
-                    }
-                    .padding(.horizontal)
-                }
-            }
-            .padding(.vertical, 8)
-        }
-        .onChange(of: selectedOutcome) { _, newValue in
-            if let outcome = newValue, !currentStrokes.isEmpty {
-                submitPoint(strokes: currentStrokes, outcome: outcome)
-            }
-        }
-        .onChange(of: isVoiceInputActive) { _, isActive in
-            if isActive {
-                // TODO: Start voice recognition
-                simulateVoiceInput()
-            }
-        }
-        .overlay {
-            if showingConfirmation {
-                ConfirmationOverlay(emoji: confirmationEmoji)
-            }
-        }
-    }
-    
-    private func addStroke(_ stroke: StrokeToken) {
-        currentStrokes.append(stroke)
-    }
-    
-    private func simulateVoiceInput() {
-        if currentStrokes.isEmpty {
-            currentStrokes.append(.fruit)
-        } else if currentStrokes.count == 1 {
-            currentStrokes.append(.animal)
-        } else {
-            resetInput()
-            currentStrokes.append(.vegetable)
-        }
-    }
-    
-    private func submitPoint(strokes: [StrokeToken], outcome: Outcome) {
-        let point = Point(
-            strokeTokens: strokes,
-            outcome: outcome
-        )
-        onPointLogged(point)
-        
-        confirmationEmoji = outcome.emoji
-        showingConfirmation = true
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            resetInput()
-            showingConfirmation = false
-        }
-    }
-    
-    private func resetInput() {
-        currentStrokes = []
-        selectedOutcome = nil
-    }
-}
-
-// MARK: - Outcome Button
-struct OutcomeButton: View {
-    let outcome: Outcome
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Text(outcome.emoji)
-                    .font(.system(size: 28))
-                Text(outcome.displayName)
-                    .font(.system(size: 9, weight: .medium))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1)
-            )
-            .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Confirmation Overlay
-struct ConfirmationOverlay: View {
-    let emoji: String
-    
-    var body: some View {
-        Text(emoji)
-            .font(.system(size: 80))
-            .transition(.scale.combined(with: .opacity))
     }
 }
 
@@ -704,4 +346,3 @@ struct ConfirmationOverlay: View {
     MainTabView()
         .modelContainer(for: [Match.self, Game.self, Point.self], inMemory: true)
 }
-

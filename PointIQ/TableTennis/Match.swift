@@ -63,14 +63,14 @@ final class Match {
     // MARK: - Match Rules Logic
     
     var isComplete: Bool {
-        TableTennisRules.isMatchComplete(
+        Rules.isMatchComplete(
             playerGamesWon: gamesWon,
             opponentGamesWon: gamesLost
         )
     }
     
     var winner: Bool? {
-        TableTennisRules.matchWinner(
+        Rules.matchWinner(
             playerGamesWon: gamesWon,
             opponentGamesWon: gamesLost
         )
