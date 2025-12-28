@@ -19,6 +19,9 @@ struct ScoreboardView: View {
     let onResetMatch: () -> Void
     let onResetMatchDirect: () -> Void
     
+    @AppStorage("playerName") private var playerName: String = "YOU"
+    @AppStorage("opponentName") private var opponentName: String = ""
+    
     // Scale factors for landscape mode
     private var titleFontSize: CGFloat { isLandscape ? 32 : 14 }
     private var scoreFontSize: CGFloat { isLandscape ? 180 : 56 }
@@ -84,7 +87,7 @@ struct ScoreboardView: View {
     
     @ViewBuilder
     private func leftColumn(game: Game, match: Match, isPlayer: Bool) -> some View {
-        let label = isPlayer ? "YOU" : "OPP"
+        let label = isPlayer ? (playerName.isEmpty ? "YOU" : playerName) : (opponentName.isEmpty ? "OPP" : opponentName)
         let score = isPlayer ? game.pointsWon : game.pointsLost
         // Serve indicator is based on position (left side), not player identity
         // Left side serves when: not swapped and player serves, OR swapped and opponent serves
@@ -146,7 +149,7 @@ struct ScoreboardView: View {
     
     @ViewBuilder
     private func rightColumn(game: Game, match: Match, isPlayer: Bool) -> some View {
-        let label = isPlayer ? "YOU" : "OPP"
+        let label = isPlayer ? (playerName.isEmpty ? "YOU" : playerName) : (opponentName.isEmpty ? "OPP" : opponentName)
         let score = isPlayer ? game.pointsWon : game.pointsLost
         // Serve indicator is based on position (right side), not player identity
         // Right side serves when: not swapped and opponent serves, OR swapped and player serves

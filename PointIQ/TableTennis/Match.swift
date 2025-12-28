@@ -9,7 +9,7 @@ import Foundation
 import SwiftData
 
 @Model
-final class Match {
+final class Match: Identifiable {
     var id: UUID
     var startDate: Date
     var endDate: Date?
