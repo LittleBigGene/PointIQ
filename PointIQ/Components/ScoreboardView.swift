@@ -16,6 +16,7 @@ struct ScoreboardView: View {
     let isLandscape: Bool
     let onStartNewGame: () -> Void
     let onResetMatch: () -> Void
+    let onResetMatchDirect: () -> Void
     
     // Scale factors for landscape mode
     private var titleFontSize: CGFloat { isLandscape ? 32 : 14 }
@@ -151,15 +152,16 @@ struct ScoreboardView: View {
                         alignment: .bottom
                     )
                     .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
+                    .highPriorityGesture(
+                        DragGesture(minimumDistance: 10)
                             .onEnded { value in
                                 let horizontalMovement = value.translation.width
                                 let verticalMovement = value.translation.height
-                                // Swipe left or right to reset match (only if match has games)
-                                if abs(horizontalMovement) > abs(verticalMovement) && abs(horizontalMovement) > 50 {
-                                    // Only reset if match counter is not 0:0
-                                    if match.gamesWon > 0 || match.gamesLost > 0 {
+                                // Swipe left/right to reset match (shows confirmation)
+                                if abs(horizontalMovement) > abs(verticalMovement) && abs(horizontalMovement) > 30 {
+                                    let hasGames = (match.games?.count ?? 0) > 0
+                                    let hasPoints = (match.points?.count ?? 0) > 0
+                                    if hasGames || hasPoints {
                                         onResetMatch()
                                     }
                                 }

@@ -36,6 +36,9 @@ struct ContentView: View {
                         },
                         onResetMatch: {
                             showResetMatchConfirmation = true
+                        },
+                        onResetMatchDirect: {
+                            resetMatch()
                         }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -152,11 +155,18 @@ struct ContentView: View {
     
     private func logPoint(_ point: Point) {
         guard let match = currentMatch, let game = currentGame else { return }
+        
+        // Set relationships before inserting
         point.match = match
         point.game = game
         modelContext.insert(point)
         lastPoint = point
-        try? modelContext.save()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving point: \(error)")
+        }
         
         // Save point to local storage
         PointHistoryStorage.shared.savePoint(point, gameNumber: game.gameNumber)

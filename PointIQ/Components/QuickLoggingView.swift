@@ -66,6 +66,9 @@ struct QuickLoggingView: View {
                 if let serve = selectedServe, let receive = selectedReceive {
                     // If serve and receive are selected, include them
                     submitPoint(serve: serve, receive: receive, rallies: selectedRallies, outcome: outcome)
+                } else if let serve = selectedServe {
+                    // Serve-only point: serve selected then outcome selected (e.g., serve + "My Err", serve + "Cho-le")
+                    submitServeOnlyPoint(serve: serve, outcome: outcome)
                 } else {
                     // Direct outcome selection without serve/receive
                     submitDirectOutcome(outcome: outcome)
@@ -304,10 +307,19 @@ struct QuickLoggingView: View {
     }
     
     private func submitAceServe(serve: ServeType) {
-        // Ace serve: only serve token, no receive, point won immediately
-        // If player is serving: point goes to player (.myWinner)
-        // If opponent is serving: point goes to opponent (.iMissed)
+        // Double-tap serve: whoever is serving gets the point (ace serve)
         let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
+        let point = Point(
+            strokeTokens: [.vegetable], // Only serve
+            outcome: outcome,
+            serveType: serve.rawValue
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitServeOnlyPoint(serve: ServeType, outcome: Outcome) {
+        // Serve-only point: serve selected then outcome selected (records serve in history)
         let point = Point(
             strokeTokens: [.vegetable], // Only serve
             outcome: outcome,
