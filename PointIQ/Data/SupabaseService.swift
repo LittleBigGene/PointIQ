@@ -197,6 +197,110 @@ class SupabaseService {
         throw SupabaseError.sdkNotAvailable
         #endif
     }
+    
+    // MARK: - Match Operations
+    
+    /// Upload a complete match (match, games, and points) to Supabase
+    func uploadMatch(_ match: Match) async throws {
+        guard SupabaseConfig.isConfigured else {
+            throw SupabaseError.notConfigured
+        }
+        
+        #if canImport(Supabase)
+        guard let client = client else {
+            throw SupabaseError.clientNotInitialized
+        }
+        
+        // 1. Upload the match
+        let matchRow: [String: Any] = [
+            "id": match.id.uuidString,
+            "start_date": match.startDate.ISO8601Format(),
+            "end_date": match.endDate?.ISO8601Format() as Any,
+            "opponent_name": match.opponentName as Any,
+            "notes": match.notes as Any,
+            "created_at": Date().ISO8601Format()
+        ]
+        
+        try await client.database
+            .from("matches")
+            .insert(matchRow)
+            .execute()
+        
+        print("✅ Match uploaded: \(match.id.uuidString)")
+        
+        // 2. Upload games
+        if let games = match.games {
+            for game in games {
+                try await uploadGame(game, matchID: match.id.uuidString)
+            }
+        }
+        
+        // 3. Upload points
+        if let games = match.games {
+            for game in games {
+                if let points = game.points {
+                    for point in points {
+                        let pointData = PointData(from: point, gameNumber: game.gameNumber)
+                        var pointRow: [String: Any] = [
+                            "id": pointData.id,
+                            "match_id": match.id.uuidString,
+                            "game_id": game.id.uuidString,
+                            "timestamp": pointData.timestamp.ISO8601Format(),
+                            "stroke_tokens": pointData.strokeTokens,
+                            "outcome": pointData.outcome,
+                            "serve_type": pointData.serveType as Any,
+                            "receive_type": pointData.receiveType as Any,
+                            "rally_types": pointData.rallyTypes,
+                            "game_number": pointData.gameNumber as Any,
+                            "created_at": Date().ISO8601Format()
+                        ]
+                        
+                        try await client.database
+                            .from("points")
+                            .insert(pointRow)
+                            .execute()
+                    }
+                }
+            }
+        }
+        
+        print("✅ Match upload complete: \(match.id.uuidString)")
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
+    
+    /// Upload a game to Supabase
+    private func uploadGame(_ game: Game, matchID: String) async throws {
+        guard SupabaseConfig.isConfigured else {
+            throw SupabaseError.notConfigured
+        }
+        
+        #if canImport(Supabase)
+        guard let client = client else {
+            throw SupabaseError.clientNotInitialized
+        }
+        
+        let gameRow: [String: Any] = [
+            "id": game.id.uuidString,
+            "match_id": matchID,
+            "game_number": game.gameNumber,
+            "start_date": game.startDate.ISO8601Format(),
+            "end_date": game.endDate?.ISO8601Format() as Any,
+            "player_serves_first": game.playerServesFirst,
+            "created_at": Date().ISO8601Format()
+        ]
+        
+        try await client.database
+            .from("games")
+            .insert(gameRow)
+            .execute()
+        
+        print("✅ Game uploaded: \(game.id.uuidString)")
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
 }
 
 // MARK: - Supabase Error Types

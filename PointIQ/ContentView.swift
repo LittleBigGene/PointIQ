@@ -18,6 +18,9 @@ struct ContentView: View {
     @State private var isVoiceInputActive = false
     @State private var showResetMatchConfirmation = false
     @State private var manualSwapOverride: Bool = false
+    @State private var isUploadingMatch = false
+    @State private var uploadError: String?
+    @State private var showUploadError = false
     @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
     
     var body: some View {
@@ -105,11 +108,49 @@ struct ContentView: View {
         }
         .alert("Reset Match", isPresented: $showResetMatchConfirmation) {
             Button("Cancel", role: .cancel) { }
+            Button("Add to History", role: .none) {
+                shareAndResetMatch()
+            }
             Button("Reset", role: .destructive) {
                 resetMatch()
             }
         } message: {
-            Text("Are you sure you want to reset the match? This will delete all games and points in the current match and start a new one.")
+            Text("Choose an option:\n\n• Add to History: Upload match to cloud, then reset\n• Reset: Delete match locally and start new")
+        }
+        .alert("Upload Error", isPresented: $showUploadError) {
+            Button("OK", role: .cancel) {
+                uploadError = nil
+            }
+        } message: {
+            if let error = uploadError {
+                Text("Failed to upload match: \(error)")
+            }
+        }
+        .overlay {
+            if isUploadingMatch {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Uploading match to cloud...")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    .padding(24)
+#if os(iOS) || os(tvOS) || os(visionOS)
+                    .background(Color(UIColor.systemBackground))
+#elseif os(macOS)
+                    .background(Color(NSColor.windowBackgroundColor))
+#else
+                    .background(Color.background)
+#endif
+                    .cornerRadius(12)
+                    .shadow(radius: 10)
+                }
+            }
         }
     }
     
@@ -313,6 +354,38 @@ struct ContentView: View {
         PointHistoryStorage.shared.removePoint(byID: pointID)
     }
     
+    private func shareAndResetMatch() {
+        guard let match = currentMatch else { return }
+        
+        // Check if Supabase is configured
+        guard SupabaseConfig.isConfigured else {
+            uploadError = "Supabase is not configured. Please configure it in Settings."
+            showUploadError = true
+            return
+        }
+        
+        isUploadingMatch = true
+        
+        Task {
+            do {
+                // Upload the match to Supabase
+                try await SupabaseService.shared.uploadMatch(match)
+                
+                // Upload successful, now reset
+                await MainActor.run {
+                    isUploadingMatch = false
+                    resetMatch()
+                }
+            } catch {
+                await MainActor.run {
+                    isUploadingMatch = false
+                    uploadError = error.localizedDescription
+                    showUploadError = true
+                }
+            }
+        }
+    }
+    
     private func resetMatch() {
         // Delete the current match and all its associated data
         if let match = currentMatch {
@@ -336,9 +409,24 @@ struct ContentView: View {
             // Clear local point history storage
             PointHistoryStorage.shared.clearAllPoints()
             
+            // Clear opponent information (player profile persists)
+            clearOpponentInformation()
+            
             // Start a new match
             startNewMatch()
         }
+    }
+    
+    private func clearOpponentInformation() {
+        // Clear all opponent AppStorage values
+        UserDefaults.standard.removeObject(forKey: "opponentName")
+        UserDefaults.standard.removeObject(forKey: "opponentGrip")
+        UserDefaults.standard.removeObject(forKey: "opponentHandedness")
+        UserDefaults.standard.removeObject(forKey: "opponentBlade")
+        UserDefaults.standard.removeObject(forKey: "opponentForehandRubber")
+        UserDefaults.standard.removeObject(forKey: "opponentBackhandRubber")
+        UserDefaults.standard.removeObject(forKey: "opponentEloRating")
+        UserDefaults.standard.removeObject(forKey: "opponentClubName")
     }
 }
 
