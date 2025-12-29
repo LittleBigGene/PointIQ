@@ -11,6 +11,8 @@ import SwiftData
 struct HistoryView: View {
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
     
+    private let topOffset: CGFloat = -40
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -21,10 +23,21 @@ struct HistoryView: View {
                     // Recent Matches Section
                     RecentMatchesSection(matches: matches)
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom)
+                .padding(.top, 10)
+                .offset(y: topOffset)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("History")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("History")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                }
+            }
         }
     }
 }

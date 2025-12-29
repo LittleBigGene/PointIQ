@@ -8,11 +8,13 @@
 import SwiftUI
 
 struct LegendView: View {
-    @State private var isServeExpanded = true
-    @State private var isReceiveExpanded = true
-    @State private var isRallyExpanded = true
-    @State private var isOutcomesExpanded = true
-    @State private var isGameRulesExpanded = true
+    @AppStorage("legendServeExpanded") private var isServeExpanded: Bool = true
+    @AppStorage("legendReceiveExpanded") private var isReceiveExpanded: Bool = true
+    @AppStorage("legendRallyExpanded") private var isRallyExpanded: Bool = true
+    @AppStorage("legendOutcomesExpanded") private var isOutcomesExpanded: Bool = true
+    @AppStorage("legendGameRulesExpanded") private var isGameRulesExpanded: Bool = true
+    
+    private let topOffset: CGFloat = -40
     
     private var allExpanded: Bool {
         isServeExpanded && isReceiveExpanded && isRallyExpanded && isOutcomesExpanded && isGameRulesExpanded
@@ -49,9 +51,13 @@ struct LegendView: View {
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Serve")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text("🫴")
+                                .font(.title2)
+                            Text("Serve")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
@@ -83,7 +89,7 @@ struct LegendView: View {
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            Text(StrokeToken.fruit.emoji)
+                            Text("👁️")
                                 .font(.title2)
                             Text("Receive")
                                 .font(.title2)
@@ -140,16 +146,19 @@ struct LegendView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(outcome.displayName)
                                         .font(.headline)
-                                    
                                 }
                                 Spacer()
                             }
                             .padding(.vertical, 8)
                         }
                     } label: {
-                        Text("Outcomes")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text("🏓")
+                                .font(.title2)
+                            Text("Outcomes")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
@@ -172,15 +181,22 @@ struct LegendView: View {
                             )
                         }
                     } label: {
-                        Text("Game Rules")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack(spacing: 8) {
+                            Text("📋")
+                                .font(.title2)
+                            Text("Game Rules")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
                     }
                     .padding()
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.bottom)
+                .padding(.top, 10)
+                .offset(y: topOffset)
             }
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -188,7 +204,7 @@ struct LegendView: View {
                     Button(action: {
                         toggleAllPanels()
                     }) {
-                        Text("Legend")
+                        Text("Stroke Legend")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
