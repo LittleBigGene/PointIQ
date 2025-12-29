@@ -19,6 +19,10 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
+            HistoryView()
+                .tabItem {
+                    Label("History", systemImage: "clock")
+                }
             LegendView()
                 .tabItem {
                     Label("Legend", systemImage: "info.circle")
