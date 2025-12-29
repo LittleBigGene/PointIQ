@@ -19,8 +19,8 @@ enum Outcome: String, Codable, CaseIterable {
         switch self {
         case .myWinner: return "Cho-le"        
         case .opponentError: return "Opp Err"
-        case .myError: return "My Err"
-        case .iMissed: return "I Missed"
+        case .myError: return "Error"
+        case .iMissed: return "Missed"
         case .unlucky: return "Net/Edge"
         }
     }

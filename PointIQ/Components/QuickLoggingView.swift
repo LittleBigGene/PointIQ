@@ -64,7 +64,7 @@ struct QuickLoggingView: View {
                     // If serve and receive are selected, include them
                     submitPoint(serve: serve, receive: receive, rallies: selectedRallies, outcome: outcome)
                 } else if let serve = selectedServe {
-                    // Serve-only point: serve selected then outcome selected (e.g., serve + "My Err", serve + "Cho-le")
+                    // Serve-only point: serve selected then outcome selected (e.g., serve + "Error", serve + "Cho-le")
                     submitServeOnlyPoint(serve: serve, outcome: outcome)
                 } else {
                     // Direct outcome selection without serve/receive
