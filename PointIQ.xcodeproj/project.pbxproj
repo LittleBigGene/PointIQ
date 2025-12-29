@@ -29,9 +29,22 @@
 		B061CC142EFC64DF0054DF6A /* PointIQUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PointIQUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B031CF3C2F0336C20017C976 /* Exceptions for "PointIQ" folder in "PointIQ" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B061CBFA2EFC64DD0054DF6A /* PointIQ */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B061CBFD2EFC64DD0054DF6A /* PointIQ */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B031CF3C2F0336C20017C976 /* Exceptions for "PointIQ" folder in "PointIQ" target */,
+			);
 			path = PointIQ;
 			sourceTree = "<group>";
 		};
@@ -401,6 +414,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PointIQ/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -411,6 +425,12 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "PointIQ needs access to your local network to share profiles with nearby devices.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "PointIQ uses Bluetooth to detect when devices are close together for secure profile sharing.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "PointIQ uses Bluetooth to detect when devices are close together for secure profile sharing.";
+				INFOPLIST_KEY_NSBonjourServices = (
+					"_pointiq-profile._tcp"
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -445,6 +465,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PointIQ/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -455,6 +476,12 @@
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "PointIQ needs access to your local network to share profiles with nearby devices.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "PointIQ uses Bluetooth to detect when devices are close together for secure profile sharing.";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "PointIQ uses Bluetooth to detect when devices are close together for secure profile sharing.";
+				INFOPLIST_KEY_NSBonjourServices = (
+					"_pointiq-profile._tcp"
+				);
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";

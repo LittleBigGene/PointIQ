@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import MultipeerConnectivity
 
 enum GripType: String, CaseIterable {
     case penhold = "Penhold"
@@ -22,6 +23,7 @@ enum Handedness: String, CaseIterable {
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
+    @StateObject private var sharingService = ProfileSharingService.shared
     
     @AppStorage("playerName") private var playerName: String = "YOU"
     @AppStorage("playerGrip") private var playerGrip: String = GripType.shakehand.rawValue
@@ -41,10 +43,25 @@ struct ProfileView: View {
     @AppStorage("opponentEloRating") private var opponentEloRating: String = ""
     @AppStorage("opponentClubName") private var opponentClubName: String = ""
     
+    @State private var showShareConfirmation = false
+    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Profile Sharing Section
+                    ProfileSharingSection(
+                        sharingService: sharingService,
+                        playerName: playerName,
+                        onShareToPeer: { peerID in
+                            shareProfile(to: peerID)
+                        },
+                        onAcceptReceived: {
+                            acceptReceivedProfile()
+                        }
+                    )
+                    .padding(.horizontal)
+                    
                     // Player Profile Section
                     DisclosureGroup("Player Profile") {
                         PlayerProfileSection(
@@ -87,7 +104,181 @@ struct ProfileView: View {
             }
             .background(Color(.systemGroupedBackground))
         }
+        .onChange(of: sharingService.receivedProfile) { _, profile in
+            if profile != nil {
+                showShareConfirmation = true
+            }
+        }
+        .alert("Connection Request", isPresented: Binding(
+            get: { sharingService.pendingInvitation != nil },
+            set: { if !$0 { sharingService.rejectInvitation() } }
+        )) {
+            Button("Accept", role: .none) {
+                sharingService.acceptInvitation()
+            }
+            Button("Decline", role: .cancel) {
+                sharingService.rejectInvitation()
+            }
+        } message: {
+            if let invitation = sharingService.pendingInvitation {
+                Text("\(invitation.peerID.displayName) wants to share their profile with you.")
+            }
+        }
+        .alert("Profile Received", isPresented: $showShareConfirmation) {
+            Button("Accept", role: .none) {
+                acceptReceivedProfile()
+            }
+            Button("Decline", role: .cancel) {
+                sharingService.receivedProfile = nil
+                sharingService.receivedProfileFromPeer = nil
+            }
+        } message: {
+            if let profile = sharingService.receivedProfile,
+               let peerName = sharingService.receivedProfileFromPeer?.displayName {
+                Text("Received profile from \(peerName):\n\n\(profile.name)\n\nUse this as opponent profile?")
+            }
+        }
+        .onDisappear {
+            sharingService.disconnect()
+        }
     }
+    
+    private func shareProfile(to peerID: MCPeerID) {
+        let profile = PlayerProfile(
+            name: playerName,
+            grip: playerGrip,
+            handedness: playerHandedness,
+            blade: playerBlade,
+            forehandRubber: playerForehandRubber,
+            backhandRubber: playerBackhandRubber,
+            eloRating: playerEloRating,
+            clubName: playerClubName
+        )
+        sharingService.sendProfile(profile, to: peerID)
+    }
+    
+    private func acceptReceivedProfile() {
+        guard let profile = sharingService.receivedProfile else { return }
+        
+        opponentName = profile.name
+        opponentGrip = profile.grip
+        opponentHandedness = profile.handedness
+        opponentBlade = profile.blade
+        opponentForehandRubber = profile.forehandRubber
+        opponentBackhandRubber = profile.backhandRubber
+        opponentEloRating = profile.eloRating
+        opponentClubName = profile.clubName
+        
+        sharingService.receivedProfile = nil
+        sharingService.receivedProfileFromPeer = nil
+    }
+}
+
+// MARK: - Profile Sharing Section
+
+struct ProfileSharingSection: View {
+    @ObservedObject var sharingService: ProfileSharingService
+    let playerName: String
+    let onShareToPeer: (MCPeerID) -> Void
+    let onAcceptReceived: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("Share Profile")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Start/Stop Sharing Button
+            Button(action: {
+                if sharingService.isAdvertising {
+                    sharingService.stopAdvertising()
+                    sharingService.stopBrowsing()
+                } else {
+                    sharingService.startAdvertising()
+                    sharingService.startBrowsing()
+                }
+            }) {
+                HStack {
+                    Image(systemName: sharingService.isAdvertising ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                    Text(sharingService.isAdvertising ? "Stop Sharing" : "Start Sharing")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(sharingService.isAdvertising ? Color.red.opacity(0.2) : Color.blue.opacity(0.2))
+                .foregroundColor(sharingService.isAdvertising ? .red : .blue)
+                .cornerRadius(10)
+            }
+            
+            // Discovered Peers List (AirDrop-style)
+            if sharingService.isBrowsing && !sharingService.discoveredPeers.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Nearby Devices")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(sharingService.discoveredPeers, id: \.displayName) { peer in
+                        HStack {
+                            Image(systemName: "iphone")
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(peer.displayName)
+                                    .font(.body)
+                                    .fontWeight(.medium)
+                                Text(sharingService.connectedPeers.contains(peer) ? "Connected" : "Tap to send profile")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            if sharingService.connectedPeers.contains(peer) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            } else {
+                                Button(action: {
+                                    onShareToPeer(peer)
+                                }) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.title2)
+                                }
+                                .disabled(!sharingService.isDeviceNearby)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.tertiarySystemBackground))
+                        .cornerRadius(8)
+                    }
+                }
+            }
+            
+            // Proximity Status
+            if sharingService.isAdvertising || sharingService.isBrowsing {
+                HStack {
+                    Image(systemName: sharingService.isDeviceNearby ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundColor(sharingService.isDeviceNearby ? .green : .orange)
+                    Text(sharingService.proximityStatus)
+                        .font(.caption)
+                        .foregroundColor(sharingService.isDeviceNearby ? .green : .orange)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 4)
+            }
+            
+            if let error = sharingService.sharingError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+    
 }
 
 struct PlayerProfileSection: View {
