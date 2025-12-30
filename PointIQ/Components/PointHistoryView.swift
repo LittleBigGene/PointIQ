@@ -15,31 +15,34 @@ struct PointHistoryView: View {
     
     @State private var storedPoints: [PointData] = []
     
-    private var allPoints: [(id: String, timestamp: Date, isStored: Bool, gameNumber: Int)] {
-        var points: [(id: String, timestamp: Date, isStored: Bool, gameNumber: Int)] = []
+    // MARK: - Point Collection
+    
+    /// Collects all points from SwiftData (preferred) or stored points (fallback)
+    private var allPoints: [PointInfo] {
+        var points: [PointInfo] = []
         var seenIDs = Set<String>()
         
-        // Add stored points from all games in the match
-        for pointData in storedPoints where !seenIDs.contains(pointData.id) {
-            points.append((id: pointData.id, timestamp: pointData.timestamp, isStored: true, gameNumber: pointData.gameNumber ?? 1))
-            seenIDs.insert(pointData.id)
+        // Prioritize SwiftData points (source of truth)
+        if let swiftDataPoints = collectSwiftDataPoints() {
+            for pointInfo in swiftDataPoints {
+                if !seenIDs.contains(pointInfo.id) {
+                    points.append(pointInfo)
+                    seenIDs.insert(pointInfo.id)
+                }
+            }
         }
         
-        // Add SwiftData points from all games (prefer over stored points if duplicate ID)
-        if let match = match, let games = match.games {
-            for game in games.sorted(by: { $0.gameNumber < $1.gameNumber }) {
-                if let gamePoints = game.points {
-                    for point in gamePoints {
-                        let pointID = point.uniqueID
-                        if !seenIDs.contains(pointID) {
-                            points.append((id: pointID, timestamp: point.timestamp, isStored: false, gameNumber: game.gameNumber))
-                            seenIDs.insert(pointID)
-                        } else {
-                            // Replace stored point with SwiftData point (more current)
-                            points.removeAll { $0.id == pointID && $0.isStored }
-                            points.append((id: pointID, timestamp: point.timestamp, isStored: false, gameNumber: game.gameNumber))
-                        }
-                    }
+        // Only use stored points if SwiftData has no points (edge case handling)
+        if points.isEmpty {
+            for pointData in storedPoints {
+                if !seenIDs.contains(pointData.id) {
+                    points.append(PointInfo(
+                        id: pointData.id,
+                        timestamp: pointData.timestamp,
+                        isStored: true,
+                        gameNumber: pointData.gameNumber ?? 1
+                    ))
+                    seenIDs.insert(pointData.id)
                 }
             }
         }
@@ -47,56 +50,86 @@ struct PointHistoryView: View {
         return points.sorted { $0.timestamp > $1.timestamp }
     }
     
-    private var validPoints: [(id: String, timestamp: Date, isStored: Bool, gameNumber: Int)] {
-        // Filter to only include points that actually exist (prevents empty rows)
-        return allPoints.filter { pointInfo in
+    /// Collects points from SwiftData
+    private func collectSwiftDataPoints() -> [PointInfo]? {
+        guard let match = match, let games = match.games else { return nil }
+        
+        var points: [PointInfo] = []
+        for game in games.sorted(by: { $0.gameNumber < $1.gameNumber }) {
+            guard let gamePoints = game.points else { continue }
+            for point in gamePoints {
+                points.append(PointInfo(
+                    id: point.uniqueID,
+                    timestamp: point.timestamp,
+                    isStored: false,
+                    gameNumber: game.gameNumber
+                ))
+            }
+        }
+        return points.isEmpty ? nil : points
+    }
+    
+    /// Validates that points still exist in their source
+    private var validPoints: [PointInfo] {
+        allPoints.filter { pointInfo in
             if pointInfo.isStored {
                 return storedPoints.contains { $0.id == pointInfo.id }
             } else {
-                if let match = match, let games = match.games {
-                    return games.contains { game in
-                        game.gameNumber == pointInfo.gameNumber &&
-                        game.points?.contains(where: { $0.uniqueID == pointInfo.id }) ?? false
-                    }
-                }
-                return false
+                return match?.games?.contains { game in
+                    game.gameNumber == pointInfo.gameNumber &&
+                    game.points?.contains(where: { $0.uniqueID == pointInfo.id }) ?? false
+                } ?? false
             }
         }
     }
     
-    private var pointsByGame: [Int: [(id: String, timestamp: Date, isStored: Bool, gameNumber: Int)]] {
+    /// Groups points by game number
+    private var pointsByGame: [Int: [PointInfo]] {
         Dictionary(grouping: validPoints) { $0.gameNumber }
     }
     
+    /// Game numbers sorted by most recent first
     private var sortedGameNumbers: [Int] {
-        pointsByGame.keys.sorted(by: >) // Most recent game first
+        pointsByGame.keys.sorted(by: >)
     }
     
+    // MARK: - Score Calculation
+    
     private func calculateScore(for gameNumber: Int) -> (player: Int, opponent: Int) {
+        // Prefer SwiftData calculation
+        if let game = match?.games?.first(where: { $0.gameNumber == gameNumber }) {
+            return (game.pointsWon, game.pointsLost)
+        }
+        
+        // Fallback to stored points calculation
+        let gameStoredPoints = storedPoints.filter { $0.gameNumber == gameNumber }
         var playerScore = 0
         var opponentScore = 0
         
-        // Calculate from SwiftData points if available
-        if let match = match,
-           let game = match.games?.first(where: { $0.gameNumber == gameNumber }) {
-            playerScore = game.pointsWon
-            opponentScore = game.pointsLost
-        } else {
-            // Calculate from stored points
-            let gameStoredPoints = storedPoints.filter { $0.gameNumber == gameNumber }
-            for pointData in gameStoredPoints {
-                if let outcome = pointData.outcomeValue {
-                    switch outcome {
-                    case .myWinner, .opponentError:
-                        playerScore += 1
-                    case .iMissed, .myError, .unlucky:
-                        opponentScore += 1
-                    }
-                }
+        for pointData in gameStoredPoints {
+            guard let outcome = pointData.outcomeValue else { continue }
+            switch outcome {
+            case .myWinner, .opponentError:
+                playerScore += 1
+            case .iMissed, .myError, .unlucky:
+                opponentScore += 1
             }
         }
         
         return (playerScore, opponentScore)
+    }
+    
+    // MARK: - Point Lookup
+    
+    private func findPoint(for pointInfo: PointInfo, in gameNumber: Int) -> (point: Point?, pointData: PointData?) {
+        if pointInfo.isStored {
+            let pointData = storedPoints.first { $0.id == pointInfo.id && $0.gameNumber == gameNumber }
+            return (nil, pointData)
+        } else {
+            let point = match?.games?.first { $0.gameNumber == gameNumber }?
+                .points?.first { $0.uniqueID == pointInfo.id }
+            return (point, nil)
+        }
     }
     
     var body: some View {
@@ -118,14 +151,11 @@ struct PointHistoryView: View {
                                 
                                 // Points for this game
                                 ForEach(gamePoints, id: \.id) { pointInfo in
-                                    if pointInfo.isStored,
-                                       let pointData = storedPoints.first(where: { $0.id == pointInfo.id && $0.gameNumber == gameNumber }) {
-                                        PointHistoryRow(pointData: pointData)
-                                    } else if !pointInfo.isStored,
-                                              let match = match,
-                                              let game = match.games?.first(where: { $0.gameNumber == gameNumber }),
-                                              let point = game.points?.first(where: { $0.uniqueID == pointInfo.id }) {
+                                    let (point, pointData) = findPoint(for: pointInfo, in: gameNumber)
+                                    if let point = point {
                                         PointHistoryRow(point: point)
+                                    } else if let pointData = pointData {
+                                        PointHistoryRow(pointData: pointData)
                                     }
                                 }
                             }
@@ -150,7 +180,6 @@ struct PointHistoryView: View {
             loadStoredPoints()
         }
         .onChange(of: match?.id) { _, newMatchID in
-            // Clear and reload when match changes (e.g., match reset)
             if newMatchID == nil {
                 storedPoints = []
             }
@@ -161,9 +190,21 @@ struct PointHistoryView: View {
         }
     }
     
+    // MARK: - Data Loading
+    
     private func loadStoredPoints() {
         storedPoints = PointHistoryStorage.shared.loadAllPoints()
     }
+}
+
+// MARK: - Supporting Types
+
+/// Represents a point in the history view
+private struct PointInfo: Identifiable {
+    let id: String
+    let timestamp: Date
+    let isStored: Bool
+    let gameNumber: Int
 }
 
 // MARK: - Game Divider
@@ -194,7 +235,7 @@ struct GameDivider: View {
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal)
-            .padding(.vertical, showTopDivider ? 8 : 8)
+            .padding(.vertical, 8)
             
             Divider()
                 .padding(.bottom, 4)
