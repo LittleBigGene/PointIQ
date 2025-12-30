@@ -32,7 +32,7 @@ This guide will help you set up Supabase to store your point history data in the
 
 Run the SQL schema file in your Supabase SQL Editor (Dashboard → SQL Editor):
 
-1. Open the file `SUPABASE_SCHEMA.sql` in this repository
+1. Open the file `SUPABASE.sql` in this repository
 2. Copy the entire contents
 3. Paste into Supabase SQL Editor
 4. Click **Run** to execute
