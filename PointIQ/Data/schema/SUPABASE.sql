@@ -89,6 +89,7 @@ CREATE TABLE matches (
     end_date TIMESTAMPTZ,
     opponent_name TEXT, -- Denormalized for quick access (can be derived from opponent_profile_id)
     notes TEXT,
+    best_of INTEGER NOT NULL DEFAULT 5, -- Best of 3, 5, or 7 games
     
     -- Opponent Profile Reference
     opponent_profile_id UUID REFERENCES player_profiles(id) ON DELETE SET NULL,
@@ -103,7 +104,8 @@ CREATE TABLE matches (
     deleted_at TIMESTAMPTZ, -- Soft delete support
     
     -- Constraints
-    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date >= start_date)
+    CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date >= start_date),
+    CONSTRAINT valid_best_of CHECK (best_of IN (3, 5, 7))
 );
 
 -- Indexes for matches
@@ -170,7 +172,7 @@ CREATE TABLE points (
     game_number INTEGER, -- Denormalized for quick queries
     
     -- Future-proofing fields
-    metadata JSONB DEFAULT '{}'::jsonb, -- Flexible storage for future features (e.g., location, weather, equipment)
+    metadata JSONB DEFAULT '{}'::jsonb, -- Flexible storage for future features (e.g., location, weather, profile)
     
     -- Audit fields
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -341,9 +343,10 @@ COMMENT ON COLUMN player_profiles.metadata IS 'JSONB field for flexible future f
 COMMENT ON COLUMN matches.user_id IS 'For future multi-user support - nullable for now';
 COMMENT ON COLUMN matches.opponent_profile_id IS 'Reference to opponent profile in player_profiles table';
 COMMENT ON COLUMN matches.opponent_name IS 'Denormalized opponent name for quick access (can be derived from opponent_profile_id)';
+COMMENT ON COLUMN matches.best_of IS 'Match format: best of 3, 5, or 7 games';
 COMMENT ON COLUMN matches.metadata IS 'JSONB field for flexible future features (e.g., location, tournament info)';
 COMMENT ON COLUMN games.metadata IS 'JSONB field for flexible future features';
-COMMENT ON COLUMN points.metadata IS 'JSONB field for flexible future features (e.g., location, weather, equipment)';
+COMMENT ON COLUMN points.metadata IS 'JSONB field for flexible future features (e.g., location, weather, profile)';
 COMMENT ON COLUMN points.game_number IS 'Denormalized for quick queries without joins';
 
 -- ============================================================================

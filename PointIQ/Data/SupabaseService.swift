@@ -24,6 +24,7 @@ class SupabaseService {
         static let points = "points"
         static let matches = "matches"
         static let games = "games"
+        static let playerProfiles = "player_profiles"
     }
     
     /// Cached ISO8601 date formatter for parsing timestamps from database
@@ -32,6 +33,11 @@ class SupabaseService {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+    
+    /// Helper to format current date as ISO8601 string
+    private static var currentTimestamp: String {
+        Date().ISO8601Format()
+    }
     
     // MARK: - Initialization
     
@@ -110,10 +116,150 @@ class SupabaseService {
             receiveType: pointData.receiveType,
             rallyTypes: pointData.rallyTypes,
             gameNumber: pointData.gameNumber,
-            createdAt: Date().ISO8601Format(),
+            createdAt: Self.currentTimestamp,
             matchId: matchId,
             gameId: gameId
         )
+    }
+    
+    /// Creates a PlayerProfileInsert from profile data
+    private func profileInsert(
+        profileType: String,
+        name: String,
+        grip: String,
+        handedness: String,
+        blade: String,
+        forehandRubber: String,
+        backhandRubber: String,
+        eloRating: String,
+        clubName: String
+    ) -> PlayerProfileInsert {
+        PlayerProfileInsert(
+            userId: nil, // For future multi-user support
+            profileType: profileType,
+            name: name,
+            grip: grip,
+            handedness: handedness,
+            blade: blade,
+            forehandRubber: forehandRubber,
+            backhandRubber: backhandRubber,
+            eloRating: eloRating,
+            clubName: clubName,
+            createdAt: Self.currentTimestamp
+        )
+    }
+    
+    /// Generic method to save/update a profile
+    private func saveProfile(
+        profileType: String,
+        name: String,
+        grip: String,
+        handedness: String,
+        blade: String,
+        forehandRubber: String,
+        backhandRubber: String,
+        eloRating: String,
+        clubName: String,
+        onConflict: String,
+        returnId: Bool = false
+    ) async throws -> String? {
+        let client = try requireClient()
+        let profileInsert = profileInsert(
+            profileType: profileType,
+            name: name,
+            grip: grip,
+            handedness: handedness,
+            blade: blade,
+            forehandRubber: forehandRubber,
+            backhandRubber: backhandRubber,
+            eloRating: eloRating,
+            clubName: clubName
+        )
+        
+        if returnId {
+            let response: [PlayerProfileRow] = try await client.from(Table.playerProfiles)
+                .upsert(profileInsert, onConflict: onConflict)
+                .select()
+                .execute()
+                .value
+            
+            guard let profile = response.first else {
+                throw SupabaseError.decodingError(NSError(
+                    domain: "SupabaseService",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to get created profile ID"]
+                ))
+            }
+            return profile.id
+        } else {
+            try await client.from(Table.playerProfiles)
+                .upsert(profileInsert, onConflict: onConflict)
+                .execute()
+            return nil
+        }
+    }
+    
+    /// Generic method to load profiles by type
+    private func loadProfiles(
+        profileType: String,
+        limit: Int? = nil,
+        orderBy: String? = nil
+    ) async throws -> [PlayerProfileRow] {
+        let client = try requireClient()
+        
+        let baseQuery = client.from(Table.playerProfiles)
+            .select()
+            .eq("profile_type", value: profileType)
+            .is("deleted_at", value: nil)
+        
+        // Build query with optional ordering and limiting
+        // Note: Order matters - order() must come before limit()
+        if let orderBy = orderBy, let limit = limit {
+            return try await baseQuery
+                .order(orderBy, ascending: true)
+                .limit(limit)
+                .execute()
+                .value
+        } else if let orderBy = orderBy {
+            return try await baseQuery
+                .order(orderBy, ascending: true)
+                .execute()
+                .value
+        } else if let limit = limit {
+            return try await baseQuery
+                .limit(limit)
+                .execute()
+                .value
+        } else {
+            return try await baseQuery
+                .execute()
+                .value
+        }
+    }
+    
+    /// Uploads all points for a game
+    private func uploadPoints(
+        for game: Game,
+        matchID: String,
+        client: SupabaseClient
+    ) async throws -> Int {
+        guard let points = game.points else { return 0 }
+        
+        var count = 0
+        for point in points {
+            let pointData = PointData(from: point, gameNumber: game.gameNumber)
+            let pointInsert = pointInsert(
+                from: pointData,
+                matchId: matchID,
+                gameId: game.id.uuidString
+            )
+            
+            try await client.from(Table.points)
+                .insert(pointInsert)
+                .execute()
+            count += 1
+        }
+        return count
     }
     #endif
     
@@ -199,7 +345,7 @@ class SupabaseService {
     // MARK: - Match Operations
     
     /// Upload a complete match (match, games, and points) to Supabase
-    func uploadMatch(_ match: Match) async throws {
+    func uploadMatch(_ match: Match, opponentProfileId: String? = nil) async throws {
         #if canImport(Supabase)
         let client = try requireClient()
         let matchID = match.id.uuidString
@@ -210,8 +356,10 @@ class SupabaseService {
             startDate: match.startDate.ISO8601Format(),
             endDate: match.endDate?.ISO8601Format(),
             opponentName: match.opponentName,
+            opponentProfileId: opponentProfileId,
             notes: match.notes,
-            createdAt: Date().ISO8601Format()
+            bestOf: match.bestOf,
+            createdAt: Self.currentTimestamp
         )
         
         try await client.from(Table.matches)
@@ -222,31 +370,23 @@ class SupabaseService {
         
         // 2. Upload games and their points
         guard let games = match.games else {
-            print("✅ Match upload complete: \(matchID)")
+            print("✅ Match upload complete: \(matchID) (no games)")
             return
         }
         
+        var totalGamesUploaded = 0
+        var totalPointsUploaded = 0
+        
         for game in games {
             try await uploadGame(game, matchID: matchID)
+            totalGamesUploaded += 1
             
             // Upload points for this game
-            if let points = game.points {
-                for point in points {
-                    let pointData = PointData(from: point, gameNumber: game.gameNumber)
-                    let pointInsert = pointInsert(
-                        from: pointData,
-                        matchId: matchID,
-                        gameId: game.id.uuidString
-                    )
-                    
-                    try await client.from(Table.points)
-                        .insert(pointInsert)
-                        .execute()
-                }
-            }
+            totalPointsUploaded += try await uploadPoints(for: game, matchID: matchID, client: client)
         }
         
         print("✅ Match upload complete: \(matchID)")
+        print("   📊 Summary: 1 match, \(totalGamesUploaded) games, \(totalPointsUploaded) points")
         #else
         throw SupabaseError.sdkNotAvailable
         #endif
@@ -264,7 +404,7 @@ class SupabaseService {
             startDate: game.startDate.ISO8601Format(),
             endDate: game.endDate?.ISO8601Format(),
             playerServesFirst: game.playerServesFirst,
-            createdAt: Date().ISO8601Format()
+            createdAt: Self.currentTimestamp
         )
         
         try await client.from(Table.games)
@@ -272,6 +412,97 @@ class SupabaseService {
             .execute()
         
         print("✅ Game uploaded: \(game.id.uuidString)")
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
+    
+    // MARK: - Profile Operations
+    
+    /// Save or update player profile to Supabase
+    func savePlayerProfile(
+        name: String,
+        grip: String,
+        handedness: String,
+        blade: String = "",
+        forehandRubber: String = "",
+        backhandRubber: String = "",
+        eloRating: String = "",
+        clubName: String = ""
+    ) async throws {
+        #if canImport(Supabase)
+        _ = try await saveProfile(
+            profileType: "player",
+            name: name,
+            grip: grip,
+            handedness: handedness,
+            blade: blade,
+            forehandRubber: forehandRubber,
+            backhandRubber: backhandRubber,
+            eloRating: eloRating,
+            clubName: clubName,
+            onConflict: "user_id,profile_type",
+            returnId: false
+        )
+        print("✅ Player profile saved")
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
+    
+    /// Save or update opponent profile to Supabase
+    func saveOpponentProfile(
+        name: String,
+        grip: String,
+        handedness: String,
+        blade: String = "",
+        forehandRubber: String = "",
+        backhandRubber: String = "",
+        eloRating: String = "",
+        clubName: String = ""
+    ) async throws -> String {
+        #if canImport(Supabase)
+        guard let profileId = try await saveProfile(
+            profileType: "opponent",
+            name: name,
+            grip: grip,
+            handedness: handedness,
+            blade: blade,
+            forehandRubber: forehandRubber,
+            backhandRubber: backhandRubber,
+            eloRating: eloRating,
+            clubName: clubName,
+            onConflict: "user_id,profile_type,name",
+            returnId: true
+        ) else {
+            throw SupabaseError.decodingError(NSError(
+                domain: "SupabaseService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to get created profile ID"]
+            ))
+        }
+        
+        print("✅ Opponent profile saved: \(profileId)")
+        return profileId
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
+    
+    /// Load player profile from Supabase
+    fileprivate func loadPlayerProfile() async throws -> PlayerProfileRow? {
+        #if canImport(Supabase)
+        let profiles = try await loadProfiles(profileType: "player", limit: 1)
+        return profiles.first
+        #else
+        throw SupabaseError.sdkNotAvailable
+        #endif
+    }
+    
+    /// Load all opponent profiles from Supabase
+    fileprivate func loadOpponentProfiles() async throws -> [PlayerProfileRow] {
+        #if canImport(Supabase)
+        return try await loadProfiles(profileType: "opponent", orderBy: "name")
         #else
         throw SupabaseError.sdkNotAvailable
         #endif
@@ -340,7 +571,9 @@ private struct MatchInsert: Encodable {
     let startDate: String
     let endDate: String?
     let opponentName: String?
+    let opponentProfileId: String?
     let notes: String?
+    let bestOf: Int
     let createdAt: String
     
     enum CodingKeys: String, CodingKey {
@@ -348,7 +581,9 @@ private struct MatchInsert: Encodable {
         case startDate = "start_date"
         case endDate = "end_date"
         case opponentName = "opponent_name"
+        case opponentProfileId = "opponent_profile_id"
         case notes
+        case bestOf = "best_of"
         case createdAt = "created_at"
     }
 }
@@ -397,6 +632,68 @@ private struct PointRow: Codable {
         case gameNumber = "game_number"
         case matchId = "match_id"
         case createdAt = "created_at"
+    }
+}
+
+private struct PlayerProfileInsert: Encodable {
+    let userId: String?
+    let profileType: String
+    let name: String
+    let grip: String
+    let handedness: String
+    let blade: String
+    let forehandRubber: String
+    let backhandRubber: String
+    let eloRating: String
+    let clubName: String
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case profileType = "profile_type"
+        case name
+        case grip
+        case handedness
+        case blade
+        case forehandRubber = "forehand_rubber"
+        case backhandRubber = "backhand_rubber"
+        case eloRating = "elo_rating"
+        case clubName = "club_name"
+        case createdAt = "created_at"
+    }
+}
+
+private struct PlayerProfileRow: Codable {
+    let id: String
+    let userId: String?
+    let profileType: String
+    let name: String
+    let grip: String
+    let handedness: String
+    let blade: String
+    let forehandRubber: String
+    let backhandRubber: String
+    let eloRating: String
+    let clubName: String
+    let createdAt: String
+    let updatedAt: String?
+    let deletedAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case profileType = "profile_type"
+        case name
+        case grip
+        case handedness
+        case blade
+        case forehandRubber = "forehand_rubber"
+        case backhandRubber = "backhand_rubber"
+        case eloRating = "elo_rating"
+        case clubName = "club_name"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case deletedAt = "deleted_at"
     }
 }
 #endif
