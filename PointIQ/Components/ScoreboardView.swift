@@ -105,14 +105,18 @@ struct ScoreboardView: View {
                 .font(.system(size: scoreFontSize, weight: .bold, design: .rounded))
                 .foregroundColor(isPlayer ? .blue : .red)
             // Serve/Receive indicator
-            Text(isServing ? "SERVE" : "RECEIVE")
-                .font(.system(size: serveIndicatorFontSize, weight: .semibold))
-                .foregroundColor(isServing ? .green : .secondary)
-                .onTapGesture {
-                    // Toggle who serves first
-                    game.playerServesFirst.toggle()
-                    try? modelContext.save()
-                }
+            HStack(spacing: 4) {
+                Text(isServing ? "🫴" : "👁️")
+                    .font(.system(size: serveIndicatorFontSize))
+                Text(isServing ? "SERVE" : "RECEIVE")
+                    .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .onTapGesture {
+                // Toggle who serves first
+                game.playerServesFirst.toggle()
+                try? modelContext.save()
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, verticalPadding)
@@ -167,14 +171,18 @@ struct ScoreboardView: View {
                 .font(.system(size: scoreFontSize, weight: .bold, design: .rounded))
                 .foregroundColor(isPlayer ? .blue : .red)
             // Serve/Receive indicator
-            Text(isServing ? "SERVE" : "RECEIVE")
-                .font(.system(size: serveIndicatorFontSize, weight: .semibold))
-                .foregroundColor(isServing ? .green : .secondary)
-                .onTapGesture {
-                    // Toggle who serves first
-                    game.playerServesFirst.toggle()
-                    try? modelContext.save()
-                }
+            HStack(spacing: 4) {
+                Text(isServing ? "🫴" : "👁️")
+                    .font(.system(size: serveIndicatorFontSize))
+                Text(isServing ? "SERVE" : "RECEIVE")
+                    .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .onTapGesture {
+                // Toggle who serves first
+                game.playerServesFirst.toggle()
+                try? modelContext.save()
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, verticalPadding)
