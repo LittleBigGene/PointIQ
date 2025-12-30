@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+// MARK: - Scroll Position Preference Key
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - View Modifiers
 
 extension View {
@@ -149,33 +157,129 @@ struct StrokeSequenceView: View {
         }
     }
     
+    // Calculate total emoji count (serve + receive + rallies)
+    private var totalEmojiCount: Int {
+        var count = 0
+        if serveShortName != nil || serveEmoji != nil { count += 1 }
+        if receiveEmoji != nil { count += 1 }
+        count += rallyEmojis.count
+        return count
+    }
+    
+    // Maximum emojis to display before using rolling window
+    private let maxDisplayEmojis = 10
+    
+    // Get full sequence (all emojis)
+    private var fullSequence: [(emoji: String, originalRallyIndex: Int?, type: EmojiType)] {
+        var sequence: [(emoji: String, originalRallyIndex: Int?, type: EmojiType)] = []
+        
+        // Build full sequence - include serve even if no emoji (for shortName display)
+        if serveShortName != nil || serveEmoji != nil {
+            sequence.append((serveEmoji ?? "", nil, .serve))
+        }
+        if let receiveEmoji = receiveEmoji {
+            sequence.append((receiveEmoji, nil, .receive))
+        }
+        for (index, emoji) in rallyEmojis.enumerated() {
+            sequence.append((emoji, index, .rally))
+        }
+        
+        return sequence
+    }
+    
+    // Get the visible window (for initial display position)
+    private var visibleWindowStartIndex: Int {
+        let fullCount = fullSequence.count
+        if fullCount > maxDisplayEmojis {
+            return fullCount - maxDisplayEmojis
+        }
+        return 0
+    }
+    
+    private enum EmojiType {
+        case serve, receive, rally
+    }
+    
+    @State private var isFirstItemVisible: Bool = false
+    
     var body: some View {
-        HStack(spacing: 6) {
-            // Serve: shortName + emoji
-            if let serveShortName = serveShortName {
-                Text(serveShortName)
-                    .font(.system(size: 14, weight: .bold))
-                if let serveEmoji = serveEmoji {
-                    Text(serveEmoji)
-                        .font(.system(size: 18))
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    // Show ellipsis only if we're truncating AND first item is not visible
+                    if totalEmojiCount > maxDisplayEmojis && visibleWindowStartIndex > 0 && !isFirstItemVisible {
+                        Text("…")
+                            .font(.system(size: 18))
+                            .foregroundColor(.secondary)
+                            .id("ellipsis")
+                    }
+                    
+                    // Display ALL emojis (full sequence) so user can scroll to see everything
+                    ForEach(fullSequence.indices, id: \.self) { index in
+                        let item = fullSequence[index]
+                        let isFirstItem = index == 0
+                        
+                        Group {
+                            // Show serve shortName for serve type
+                            if item.type == .serve, let serveShortName = serveShortName {
+                                Text(serveShortName)
+                                    .font(.system(size: 14, weight: .bold))
+                            }
+                            
+                            // Show the emoji (only if not empty)
+                            if !item.emoji.isEmpty {
+                                Text(item.emoji)
+                                    .font(.system(size: 18))
+                                    .onTapGesture {
+                                        // Only handle tap for rally emojis
+                                        if let rallyIndex = item.originalRallyIndex {
+                                            onRallyTap?(rallyIndex)
+                                        }
+                                    }
+                            }
+                        }
+                        .id("item-\(index)")
+                        .background(
+                            // Track visibility of first item
+                            Group {
+                                if isFirstItem {
+                                    GeometryReader { geometry in
+                                        Color.clear
+                                            .preference(
+                                                key: ScrollOffsetPreferenceKey.self,
+                                                value: geometry.frame(in: .named("scroll")).minX
+                                            )
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+                .frame(minWidth: 0)
+            }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                // First item is visible if its position is at or before the scroll view's leading edge
+                // (with a small threshold for floating point comparison)
+                isFirstItemVisible = value <= 20
+            }
+            .onAppear {
+                // Scroll to show the rolling window (last maxDisplayEmojis) by default
+                if totalEmojiCount > maxDisplayEmojis && visibleWindowStartIndex > 0 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            proxy.scrollTo("item-\(visibleWindowStartIndex)", anchor: .leading)
+                        }
+                    }
                 }
             }
-            
-            // Receive: emoji
-            if let receiveEmoji = receiveEmoji {
-                Text(receiveEmoji)
-                    .font(.system(size: 18))
-            }
-            
-            // Rally: emojis (tappable to undo)
-            if !rallyEmojis.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(rallyEmojis.indices, id: \.self) { index in
-                        Text(rallyEmojis[index])
-                            .font(.system(size: 18))
-                            .onTapGesture {
-                                onRallyTap?(index)
-                            }
+            .onChange(of: totalEmojiCount) { _, _ in
+                // When new items are added, scroll to show the latest (rolling window)
+                if totalEmojiCount > maxDisplayEmojis && visibleWindowStartIndex > 0 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            proxy.scrollTo("item-\(visibleWindowStartIndex)", anchor: .leading)
+                        }
                     }
                 }
             }

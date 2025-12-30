@@ -189,12 +189,23 @@ struct QuickLoggingView: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
                 // Animated table tennis ball that moves based on who hits next
-                HStack {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 20, height: 20)
-                        .frame(maxWidth: .infinity, alignment: nextRallyHitterSide == .leading ? .leading : .trailing)
-                        .animation(.easeInOut(duration: 0.3), value: selectedRallies.count)
+                let totalCount = (selectedServe != nil ? 1 : 0) + (selectedReceive != nil ? 1 : 0) + selectedRallies.count
+                ZStack {
+                    // Rally count centered in the middle
+                    if totalCount > 10 {
+                        Text("\(selectedRallies.count) rallies")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Orange ball that animates through the center
+                    HStack {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 20, height: 20)
+                            .frame(maxWidth: .infinity, alignment: nextRallyHitterSide == .leading ? .leading : .trailing)
+                            .animation(.easeInOut(duration: 0.3), value: selectedRallies.count)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)                

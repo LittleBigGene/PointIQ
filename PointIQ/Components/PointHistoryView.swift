@@ -225,12 +225,13 @@ struct PointHistoryRow: View {
     var body: some View {
         if point != nil || pointData != nil {
             HStack(spacing: 12) {
+                // Stroke sequence with horizontal scrolling (ScrollView is inside StrokeSequenceView)
                 if let point = point {
                     StrokeSequenceView(point: point)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                 } else if let pointData = pointData {
                     StrokeSequenceView(pointData: pointData)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                 }
                 
                 // Outcome emoji and displayName together on the right
