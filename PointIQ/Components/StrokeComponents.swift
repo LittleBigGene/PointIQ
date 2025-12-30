@@ -271,7 +271,16 @@ struct OutcomeButton: View {
             .frame(maxWidth: .infinity)
             .aspectRatio(0.85, contentMode: .fit)
             .padding(12)
-            .buttonStyle(isSelected: isSelected)
+            .background(
+                isSelected 
+                    ? Color.accentColor.opacity(0.2) 
+                    : outcome.backgroundColor
+            )
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
         }
         .buttonStyle(.plain)
     }

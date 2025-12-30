@@ -47,6 +47,11 @@ struct QuickLoggingView: View {
         pointHistoryHeightRatio > 0.55
     }
     
+    // Outcomes in correct order based on side swap (reversed when swapped to keep colors consistent)
+    private var orderedOutcomes: [Outcome] {
+        shouldSwapPlayers ? Outcome.allCases.reversed() : Outcome.allCases
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             previewHeader
@@ -265,7 +270,7 @@ struct QuickLoggingView: View {
     
     private var outcomesRow: some View {
         HStack(spacing: 8) {
-            ForEach(Outcome.allCases, id: \.self) { outcome in
+            ForEach(orderedOutcomes, id: \.self) { outcome in
                 OutcomeButton(
                     outcome: outcome,
                     isSelected: selectedOutcome == outcome
