@@ -140,7 +140,7 @@ The schema consists of four main tables with proper relationships:
 | `game_id` | UUID (FOREIGN KEY, nullable) | Reference to the game |
 | `timestamp` | TIMESTAMPTZ | When the point was recorded |
 | `stroke_tokens` | TEXT[] | Array of stroke token values |
-| `outcome` | TEXT | Outcome (myWinner, iMissed, opponentError, myError, unlucky) |
+| `outcome` | TEXT | Outcome (my_winner, i_missed, opponent_error, my_error, unlucky) |
 | `serve_type` | TEXT (nullable) | Type of serve |
 | `receive_type` | TEXT (nullable) | Type of receive |
 | `rally_types` | TEXT[] | Array of rally type values |

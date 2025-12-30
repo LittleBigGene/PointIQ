@@ -178,7 +178,7 @@ CREATE TABLE points (
     deleted_at TIMESTAMPTZ, -- Soft delete support
     
     -- Constraints
-    CONSTRAINT valid_outcome CHECK (outcome IN ('myWinner', 'iMissed', 'opponentError', 'myError', 'unlucky'))
+    CONSTRAINT valid_outcome CHECK (outcome IN ('my_winner', 'i_missed', 'opponent_error', 'my_error', 'unlucky'))
 );
 
 -- Indexes for points (optimized for common queries)
@@ -279,15 +279,15 @@ BEGIN
     RETURN QUERY
     SELECT
         COUNT(p.id)::BIGINT as total_points,
-        COUNT(p.id) FILTER (WHERE p.outcome = 'myWinner')::BIGINT as points_won,
-        COUNT(p.id) FILTER (WHERE p.outcome = 'iMissed')::BIGINT as points_lost,
+        COUNT(p.id) FILTER (WHERE p.outcome = 'my_winner')::BIGINT as points_won,
+        COUNT(p.id) FILTER (WHERE p.outcome = 'i_missed')::BIGINT as points_lost,
         COUNT(DISTINCT g.id)::BIGINT as total_games,
         COUNT(DISTINCT g.id) FILTER (WHERE g.end_date IS NOT NULL AND 
-            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'myWinner') >
-            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'iMissed'))::BIGINT as games_won,
+            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'my_winner') >
+            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'i_missed'))::BIGINT as games_won,
         COUNT(DISTINCT g.id) FILTER (WHERE g.end_date IS NOT NULL AND 
-            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'myWinner') <
-            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'iMissed'))::BIGINT as games_lost
+            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'my_winner') <
+            (SELECT COUNT(*) FROM points WHERE game_id = g.id AND outcome = 'i_missed'))::BIGINT as games_lost
     FROM matches m
     LEFT JOIN games g ON g.match_id = m.id AND g.deleted_at IS NULL
     LEFT JOIN points p ON p.match_id = m.id AND p.deleted_at IS NULL
@@ -317,8 +317,8 @@ SELECT
     m.*,
     COUNT(DISTINCT g.id) as game_count,
     COUNT(DISTINCT p.id) as point_count,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.outcome = 'myWinner') as points_won,
-    COUNT(DISTINCT p.id) FILTER (WHERE p.outcome = 'iMissed') as points_lost
+    COUNT(DISTINCT p.id) FILTER (WHERE p.outcome = 'my_winner') as points_won,
+    COUNT(DISTINCT p.id) FILTER (WHERE p.outcome = 'i_missed') as points_lost
 FROM matches m
 LEFT JOIN games g ON g.match_id = m.id AND g.deleted_at IS NULL
 LEFT JOIN points p ON p.match_id = m.id AND p.deleted_at IS NULL
