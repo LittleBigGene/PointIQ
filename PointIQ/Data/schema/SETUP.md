@@ -32,13 +32,16 @@ This guide will help you set up Supabase to store your point history data in the
 
 Run the SQL schema file in your Supabase SQL Editor (Dashboard → SQL Editor):
 
-1. Open the file `SUPABASE_SCHEMA.sql` in this repository
+1. Open the file `SUPABASE.sql` in this repository
 2. Copy the entire contents
 3. Paste into Supabase SQL Editor
 4. Click **Run** to execute
 
+**Note:** This script will drop all existing tables and recreate the schema from scratch. If you have existing data, make sure to back it up first.
+
 This creates a comprehensive, future-proof schema with:
-- **matches** table - for match-level data
+- **player_profiles** table - for player profile data (one per user)
+- **matches** table - for match-level data (includes opponent profile)
 - **games** table - for game-level data  
 - **points** table - for point-level data
 - Proper relationships with foreign keys
@@ -71,7 +74,29 @@ The schema is designed to minimize future migrations by:
 
 ## Database Schema
 
-The schema consists of three main tables with proper relationships:
+The schema consists of four main tables with proper relationships:
+
+### `player_profiles` Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID (PRIMARY KEY) | Unique identifier for the profile |
+| `user_id` | UUID (nullable) | For future multi-user support |
+| `profile_type` | TEXT | Type of profile: 'player' or 'opponent' |
+| `name` | TEXT | Profile name (default: "YOU" for player) |
+| `grip` | TEXT | Grip type (Penhold, Shakehand, Other) |
+| `handedness` | TEXT | Handedness (Left-handed, Right-handed) |
+| `blade` | TEXT | Blade name/model |
+| `forehand_rubber` | TEXT | Forehand rubber name/model |
+| `backhand_rubber` | TEXT | Backhand rubber name/model |
+| `elo_rating` | TEXT | Elo rating |
+| `club_name` | TEXT | Club name |
+| `metadata` | JSONB | Flexible storage for future features |
+| `created_at` | TIMESTAMPTZ | When the record was created |
+| `updated_at` | TIMESTAMPTZ | When the record was last updated |
+| `deleted_at` | TIMESTAMPTZ (nullable) | Soft delete timestamp |
+
+**Note:** This table stores both player profiles (user's own profile, one per user) and opponent profiles (can have multiple). The `profile_type` field distinguishes between them.
 
 ### `matches` Table
 
@@ -80,13 +105,16 @@ The schema consists of three main tables with proper relationships:
 | `id` | UUID (PRIMARY KEY) | Unique identifier for the match |
 | `start_date` | TIMESTAMPTZ | When the match started |
 | `end_date` | TIMESTAMPTZ (nullable) | When the match ended (NULL = active) |
-| `opponent_name` | TEXT (nullable) | Name of the opponent |
+| `opponent_name` | TEXT (nullable) | Denormalized opponent name for quick access |
 | `notes` | TEXT (nullable) | Match notes |
+| `opponent_profile_id` | UUID (nullable) | Foreign key to opponent profile in player_profiles table |
 | `user_id` | UUID (nullable) | For future multi-user support |
 | `metadata` | JSONB | Flexible storage for future features |
 | `created_at` | TIMESTAMPTZ | When the record was created |
 | `updated_at` | TIMESTAMPTZ | When the record was last updated |
 | `deleted_at` | TIMESTAMPTZ (nullable) | Soft delete timestamp |
+
+**Note:** Opponent profile information is stored in the `player_profiles` table with `profile_type='opponent'`. The `opponent_profile_id` references this profile, allowing opponent profiles to be reused across multiple matches.
 
 ### `games` Table
 
@@ -112,7 +140,7 @@ The schema consists of three main tables with proper relationships:
 | `game_id` | UUID (FOREIGN KEY, nullable) | Reference to the game |
 | `timestamp` | TIMESTAMPTZ | When the point was recorded |
 | `stroke_tokens` | TEXT[] | Array of stroke token values |
-| `outcome` | TEXT | Outcome (myWinner, iMissed, opponentError, myError, unlucky) |
+| `outcome` | TEXT | Outcome (my_winner, i_missed, opponent_error, my_error, unlucky) |
 | `serve_type` | TEXT (nullable) | Type of serve |
 | `receive_type` | TEXT (nullable) | Type of receive |
 | `rally_types` | TEXT[] | Array of rally type values |
@@ -131,6 +159,7 @@ The schema consists of three main tables with proper relationships:
 - **Audit Trail**: created_at and updated_at timestamps
 - **Views**: Pre-built views for common queries (active_matches, completed_matches, match_summary)
 - **Helper Functions**: get_match_stats() for statistics
+- **Profile Support**: Both player and opponent profiles stored in `player_profiles` table, with opponent profiles referenced by matches via foreign key
 
 ## Features
 

@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B0330F262F03922600580D7E /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B031CEA72F030CE00017C976 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B061CC0B2EFC64DF0054DF6A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B0330F262F03922600580D7E /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +130,7 @@
 			);
 			name = PointIQ;
 			packageProductDependencies = (
+				B031CEA72F030CE00017C976 /* Supabase */,
 			);
 			productName = PointIQ;
 			productReference = B061CBFB2EFC64DD0054DF6A /* PointIQ.app */;
@@ -652,6 +658,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B031CEA72F030CE00017C976 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B031CEA62F030CE00017C976 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B061CBF32EFC64DD0054DF6A /* Project object */;
 }

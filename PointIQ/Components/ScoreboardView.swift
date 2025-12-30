@@ -30,7 +30,7 @@ struct ScoreboardView: View {
     private var statusFontSize: CGFloat { isLandscape ? 20 : 10 }
     private var serveIndicatorFontSize: CGFloat { isLandscape ? 24 : 12 }
     private var verticalPadding: CGFloat { isLandscape ? 10 : 20 }
-    private var spacing: CGFloat { isLandscape ? 24 : 8 }
+    private var spacing: CGFloat { isLandscape ? 16 : 6 }
     private let tabBarHeight: CGFloat = 83
     
     // Determine who is serving for the NEXT point
@@ -105,17 +105,22 @@ struct ScoreboardView: View {
                 .font(.system(size: scoreFontSize, weight: .bold, design: .rounded))
                 .foregroundColor(isPlayer ? .blue : .red)
             // Serve/Receive indicator
-            Text(isServing ? "SERVE" : "RECEIVE")
-                .font(.system(size: serveIndicatorFontSize, weight: .semibold))
-                .foregroundColor(isServing ? .green : .secondary)
-                .onTapGesture {
-                    // Toggle who serves first
-                    game.playerServesFirst.toggle()
-                    try? modelContext.save()
-                }
+            HStack(spacing: 4) {
+                Text(isServing ? "🫴" : "👁️")
+                    .font(.system(size: serveIndicatorFontSize))
+                Text(isServing ? "SERVE" : "RECEIVE")
+                    .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .onTapGesture {
+                // Toggle who serves first
+                game.playerServesFirst.toggle()
+                try? modelContext.save()
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, verticalPadding)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, isLandscape ? 8 : 12)
+        .padding(.bottom, isLandscape ? 4 : 6)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 20)
@@ -167,17 +172,22 @@ struct ScoreboardView: View {
                 .font(.system(size: scoreFontSize, weight: .bold, design: .rounded))
                 .foregroundColor(isPlayer ? .blue : .red)
             // Serve/Receive indicator
-            Text(isServing ? "SERVE" : "RECEIVE")
-                .font(.system(size: serveIndicatorFontSize, weight: .semibold))
-                .foregroundColor(isServing ? .green : .secondary)
-                .onTapGesture {
-                    // Toggle who serves first
-                    game.playerServesFirst.toggle()
-                    try? modelContext.save()
-                }
+            HStack(spacing: 4) {
+                Text(isServing ? "🫴" : "👁️")
+                    .font(.system(size: serveIndicatorFontSize))
+                Text(isServing ? "SERVE" : "RECEIVE")
+                    .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .onTapGesture {
+                // Toggle who serves first
+                game.playerServesFirst.toggle()
+                try? modelContext.save()
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, verticalPadding)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, isLandscape ? 8 : 12)
+        .padding(.bottom, isLandscape ? 4 : 6)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 20)
@@ -217,9 +227,10 @@ struct ScoreboardView: View {
         
         VStack(alignment: .center, spacing: spacing) {
             Text("MATCH")
-                .font(.system(size: matchLabelFontSize, weight: .bold))
+                .font(.system(size: titleFontSize, weight: .black))
                 .foregroundColor(.secondary)
-            HStack(spacing: isLandscape ? 32 : 16) {
+                .padding(.top, isLandscape ? 8 : 0)
+            HStack(spacing: isLandscape ? 16 : 8) {
                 Text("\(leftScore)")
                     .font(.system(size: matchScoreFontSize, weight: .bold, design: .rounded))
                     .foregroundColor(shouldSwapPlayers ? .red : .blue)
@@ -230,6 +241,32 @@ struct ScoreboardView: View {
                     .font(.system(size: matchScoreFontSize, weight: .bold, design: .rounded))
                     .foregroundColor(shouldSwapPlayers ? .blue : .red)
             }
+            
+            // Match format slider - aligned with serve/receive indicators
+            VStack(spacing: isLandscape ? 8 : 4) {
+                Text("Best of")
+                    .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, isLandscape ? 0 : 4)
+                Picker("Match Format", selection: Binding(
+                    get: { match.bestOf },
+                    set: { newValue in
+                        match.bestOf = newValue
+                        try? modelContext.save()
+                    }
+                )) {
+                    Text("3").tag(3)
+                    Text("5").tag(5)
+                    Text("7").tag(7)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: isLandscape ? 180 : 90)
+                .frame(height: isLandscape ? 32 : 20)
+            }
+            .padding(.top, isLandscape ? -16 : 0)
+            .padding(.bottom, isLandscape ? 4 : 0)
+            .frame(minHeight: isLandscape ? 50 : 30)
+            
             // Status indicator
             if game.isComplete {
                 Text(game.winner == true ? "GAME WON" : "GAME LOST")
@@ -250,24 +287,29 @@ struct ScoreboardView: View {
                         .font(.system(size: statusFontSize))
                 }
             }
-            Spacer() // Push content to top
+            
+            if isLandscape {
+                Spacer()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, verticalPadding)
-        .padding(.bottom, verticalPadding)
+        .padding(.top, isLandscape ? 8 : 20)
+        .padding(.bottom, isLandscape ? 20 : 6)
         .background(
             Color.secondary.opacity(0.1)
-                .ignoresSafeArea(.container, edges: isLandscape ? [.top, .leading, .trailing] : [])
+                .ignoresSafeArea(.container, edges: isLandscape ? [.top, .leading, .trailing, .bottom] : [])
         )
         .overlay(
             isLandscape ? VStack {
                 Spacer()
+                    .frame(minHeight: 0)
                 Color(UIColor.systemBackground)
                     .frame(height: tabBarHeight)
                     .ignoresSafeArea(.container, edges: .bottom)
             } : nil,
             alignment: .bottom
         )
+        .clipped()
         .contentShape(Rectangle())
         .highPriorityGesture(
             DragGesture(minimumDistance: 10)

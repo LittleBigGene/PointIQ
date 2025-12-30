@@ -21,7 +21,27 @@ struct ContentView: View {
     @State private var isUploadingMatch = false
     @State private var uploadError: String?
     @State private var showUploadError = false
+    @State private var restoredMatchID: UUID? // Track which match we've restored points for
     @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
+    
+    // Profile data for uploading
+    @AppStorage("playerName") private var name: String = "YOU"
+    @AppStorage("playerGrip") private var playerGrip: String = "Shakehand"
+    @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
+    @AppStorage("playerBlade") private var playerBlade: String = ""
+    @AppStorage("playerForehandRubber") private var playerForehandRubber: String = ""
+    @AppStorage("playerBackhandRubber") private var playerBackhandRubber: String = ""
+    @AppStorage("playerEloRating") private var playerEloRating: String = ""
+    @AppStorage("playerClubName") private var playerClubName: String = ""
+    
+    @AppStorage("opponentName") private var opponentName: String = ""
+    @AppStorage("opponentGrip") private var opponentGrip: String = "Shakehand"
+    @AppStorage("opponentHandedness") private var opponentHandedness: String = "Right-handed"
+    @AppStorage("opponentBlade") private var opponentBlade: String = ""
+    @AppStorage("opponentForehandRubber") private var opponentForehandRubber: String = ""
+    @AppStorage("opponentBackhandRubber") private var opponentBackhandRubber: String = ""
+    @AppStorage("opponentEloRating") private var opponentEloRating: String = ""
+    @AppStorage("opponentClubName") private var opponentClubName: String = ""
     
     var body: some View {
         NavigationStack {
@@ -135,7 +155,7 @@ struct ContentView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.5)
-                        Text("Uploading match to cloud...")
+                        Text("Saving profiles and uploading match...")
                             .font(.headline)
                             .foregroundColor(.primary)
                     }
@@ -162,8 +182,12 @@ struct ContentView: View {
            match.isActive {
             currentMatch = match
             currentGame = match.currentGame
-            // Restore points from local storage to SwiftData
-            restorePointsFromStorage()
+            
+            // Restore points from local storage to SwiftData only once per match
+            if restoredMatchID != match.id {
+                restorePointsFromStorage()
+                restoredMatchID = match.id
+            }
         } else {
             // No valid stored match, start a new one
             if currentMatch == nil {
@@ -277,11 +301,13 @@ struct ContentView: View {
         let newMatch = Match()
         modelContext.insert(newMatch)
         currentMatch = newMatch
+        restoredMatchID = nil // Reset for new match
         startNewGame()
         try? modelContext.save()
         
         // Restore points from local storage if they exist
         restorePointsFromStorage()
+        restoredMatchID = newMatch.id
     }
     
     private func startNewGame() {
@@ -368,8 +394,35 @@ struct ContentView: View {
         
         Task {
             do {
-                // Upload the match to Supabase
-                try await SupabaseService.shared.uploadMatch(match)
+                // 1. Save player profile
+                try await SupabaseService.shared.savePlayerProfile(
+                    name: name,
+                    grip: playerGrip,
+                    handedness: playerHandedness,
+                    blade: playerBlade,
+                    forehandRubber: playerForehandRubber,
+                    backhandRubber: playerBackhandRubber,
+                    eloRating: playerEloRating,
+                    clubName: playerClubName
+                )
+                
+                // 2. Save opponent profile if opponent data exists
+                var opponentProfileId: String? = nil
+                if !opponentName.isEmpty {
+                    opponentProfileId = try await SupabaseService.shared.saveOpponentProfile(
+                        name: opponentName,
+                        grip: opponentGrip,
+                        handedness: opponentHandedness,
+                        blade: opponentBlade,
+                        forehandRubber: opponentForehandRubber,
+                        backhandRubber: opponentBackhandRubber,
+                        eloRating: opponentEloRating,
+                        clubName: opponentClubName
+                    )
+                }
+                
+                // 3. Upload the match (with opponent profile reference if available)
+                try await SupabaseService.shared.uploadMatch(match, opponentProfileId: opponentProfileId)
                 
                 // Upload successful, now reset
                 await MainActor.run {
@@ -404,6 +457,7 @@ struct ContentView: View {
             currentGame = nil
             currentMatch = nil
             lastPoint = nil
+            restoredMatchID = nil // Reset flag when match is reset
             try? modelContext.save()
             
             // Clear local point history storage
