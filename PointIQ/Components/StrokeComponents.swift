@@ -64,6 +64,7 @@ struct StrokeSequenceView: View {
     let serveEmoji: String?
     let receiveEmoji: String?
     let rallyEmojis: [String]
+    var onRallyTap: ((Int) -> Void)? = nil // Callback when rally emoji is tapped (index parameter)
     
     private static func extractServeInfo(from serve: ServeType?) -> (shortName: String?, emoji: String?) {
         guard let serve = serve else { return (nil, nil) }
@@ -71,12 +72,13 @@ struct StrokeSequenceView: View {
         return (serve.shortName, emoji)
     }
     
-    init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType]) {
+    init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType], onRallyTap: ((Int) -> Void)? = nil) {
         let serveInfo = Self.extractServeInfo(from: serve)
         self.serveShortName = serveInfo.shortName
         self.serveEmoji = serveInfo.emoji
         self.receiveEmoji = receive?.emoji
         self.rallyEmojis = rallies.map { $0.emoji }
+        self.onRallyTap = onRallyTap
     }
     
     init(point: Point) {
@@ -165,12 +167,15 @@ struct StrokeSequenceView: View {
                     .font(.system(size: 18))
             }
             
-            // Rally: emojis
+            // Rally: emojis (tappable to undo)
             if !rallyEmojis.isEmpty {
                 HStack(spacing: 4) {
                     ForEach(rallyEmojis.indices, id: \.self) { index in
                         Text(rallyEmojis[index])
                             .font(.system(size: 18))
+                            .onTapGesture {
+                                onRallyTap?(index)
+                            }
                     }
                 }
             }

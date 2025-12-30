@@ -17,19 +17,22 @@ final class Match: Identifiable {
     @Relationship(deleteRule: .cascade, inverse: \Game.match) var games: [Game]?
     var opponentName: String?
     var notes: String?
+    var bestOf: Int // Best of 3, 5, or 7 games
     
     init(
         id: UUID = UUID(),
         startDate: Date = Date(),
         endDate: Date? = nil,
         opponentName: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        bestOf: Int = 5
     ) {
         self.id = id
         self.startDate = startDate
         self.endDate = endDate
         self.opponentName = opponentName
         self.notes = notes
+        self.bestOf = bestOf
     }
     
     var isActive: Bool {

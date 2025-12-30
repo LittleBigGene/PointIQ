@@ -106,7 +106,13 @@ struct QuickLoggingView: View {
                 StrokeSequenceView(
                     serve: selectedServe,
                     receive: selectedReceive,
-                    rallies: selectedRallies
+                    rallies: selectedRallies,
+                    onRallyTap: { index in
+                        // Remove rally at and after the tapped index (undo from that point)
+                        if index < selectedRallies.count {
+                            selectedRallies.removeSubrange(index..<selectedRallies.count)
+                        }
+                    }
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
@@ -137,8 +143,11 @@ struct QuickLoggingView: View {
         .background(Color.secondary.opacity(0.05))
         .contentShape(Rectangle())
         .onTapGesture {
-            // Flip serving order only if no points have been played yet
-            if let game = currentGame, game.pointCount == 0 {
+            // Flip serving order only if:
+            // 1. Game exists and has no points played yet (game.pointCount == 0)
+            // 2. No point is currently in play (no selections)
+            // Note: Once a game has started (any points played), serving order is locked
+            if let game = currentGame, game.pointCount == 0, !hasSelection {
                 game.playerServesFirst.toggle()
                 try? modelContext.save()
             }
@@ -155,14 +164,40 @@ struct QuickLoggingView: View {
         }
     }
     
+    /// Determines which side (left/right) the next rally hitter is on
+    private var nextRallyHitterSide: HorizontalAlignment {
+        // After serve+receive, rallies start with the server:
+        // Rally 1: server hits (person who served)
+        // Rally 2: non-server hits (person who received)
+        // Rally 3: server hits
+        // etc.
+        // So: even count (0, 2, 4...) = server hits next, odd count (1, 3, 5...) = non-server hits next
+        
+        let isServerHitting = selectedRallies.count % 2 == 0
+        let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
+        
+        if isServerHitting {
+            // Server hits next - same side as server
+            return leftIsServing ? .leading : .trailing
+        } else {
+            // Non-server hits next - opposite side of server
+            return leftIsServing ? .trailing : .leading
+        }
+    }
+    
     private var rallyModeContent: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Rally")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.primary)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)                
+                // Animated table tennis ball that moves based on who hits next
+                HStack {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 20, height: 20)
+                        .frame(maxWidth: .infinity, alignment: nextRallyHitterSide == .leading ? .leading : .trailing)
+                        .animation(.easeInOut(duration: 0.3), value: selectedRallies.count)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)                
                 
                 LazyVGrid(columns: [
                     GridItem(.flexible(), spacing: 12),
