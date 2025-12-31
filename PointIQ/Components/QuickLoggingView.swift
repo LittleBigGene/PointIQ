@@ -108,6 +108,15 @@ struct QuickLoggingView: View {
     }
     
     private var previewHeader: some View {
+        // Calculate dynamic spacer width: start with 13 emojis, reduce by 1 for each selected stroke
+        let emojiWidth: CGFloat = 18
+        let emojiSpacing: CGFloat = 6
+        
+        let strokeCount = (selectedServe != nil ? 1 : 0) + 
+                         (selectedReceive != nil ? 1 : 0) + 
+                         selectedRallies.count
+        let emojiCount = max(0, 13 - strokeCount) // Minimum 0
+        let dynamicSpacerWidth = (emojiWidth * CGFloat(emojiCount)) + (emojiSpacing * CGFloat(max(0, emojiCount - 1)))
         
         return HStack(spacing: 12) {
             // Reset button on left when reversed
@@ -120,6 +129,12 @@ struct QuickLoggingView: View {
             }
             
             if hasSelection {
+                if rightSideServes {
+                    // In reverse mode, add spacer to push content to the right (reduces as strokes are added)
+                    Spacer()
+                        .frame(width: dynamicSpacerWidth)
+                }
+                
                 StrokeSequenceView(
                     serve: selectedServe,
                     receive: selectedReceive,
