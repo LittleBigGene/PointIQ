@@ -26,6 +26,26 @@ enum Outcome: String, Codable, CaseIterable {
         }
     }
     
+    var displayNameJapanese: String {
+        switch self {
+        case .myWinner: return "チョレ"
+        case .opponentError: return "相手エラー"
+        case .myError: return "エラー"
+        case .iMissed: return "ミス"
+        case .unlucky: return "ネット/エッジ"
+        }
+    }
+    
+    var displayNameChinese: String {
+        switch self {
+        case .myWinner: return "得分好球"
+        case .opponentError: return "对手失误"
+        case .myError: return "自己失误"
+        case .iMissed: return "没碰到球"
+        case .unlucky: return "擦网擦边"
+        }
+    }
+    
     var emoji: String {
         switch self {
         case .myWinner: return "💪"
@@ -44,6 +64,14 @@ enum Outcome: String, Codable, CaseIterable {
         case .opponentError, .myWinner:
             // Blue-ish background: point won by player
             return Color.blue.opacity(0.15)
+        }
+    }
+    
+    func displayName(for language: Language) -> String {
+        switch language {
+        case .english: return displayName
+        case .japanese: return displayNameJapanese
+        case .chinese: return displayNameChinese
         }
     }
 }
