@@ -132,6 +132,86 @@ struct PointHistoryView: View {
         }
     }
     
+    /// Determines if stroke sequence should be displayed in reverse order (right-to-left)
+    /// This occurs when the opponent served from the right side
+    private func shouldReverseOrder(for gameNumber: Int) -> Bool {
+        guard let game = match?.games?.first(where: { $0.gameNumber == gameNumber }) else { return false }
+        
+        // Use GameSideSwap logic for consistency (without manual override for history view)
+        let shouldSwap = GameSideSwap.shouldSwapPlayers(gameNumber: gameNumber, manualSwapOverride: false)
+        
+        // Opponent serves from right when: not swapped AND opponent served first
+        return !shouldSwap && !game.playerServesFirst
+    }
+    
+    // MARK: - Serve Determination Helpers
+    
+    /// Calculates score from an outcome
+    private func scoreFromOutcome(_ outcome: Outcome) -> (player: Int, opponent: Int) {
+        switch outcome {
+        case .myWinner, .opponentError:
+            return (1, 0)
+        case .iMissed, .myError, .unlucky:
+            return (0, 1)
+        }
+    }
+    
+    /// Determines who served for a point based on serve rotation rules
+    private func didOpponentServe(pointIndex: Int, playerServesFirst: Bool, playerPoints: Int, opponentPoints: Int) -> Bool {
+        let hasReached11 = playerPoints >= 11 || opponentPoints >= 11
+        
+        if hasReached11 {
+            // After 11: serve alternates every point
+            return playerServesFirst ? (pointIndex % 2 == 1) : (pointIndex % 2 == 0)
+        } else {
+            // Before 11: serve alternates every 2 points
+            let pointBlock = pointIndex / 2
+            return playerServesFirst ? (pointBlock % 2 == 1) : (pointBlock % 2 == 0)
+        }
+    }
+    
+    /// Determines if the opponent served for a specific point
+    private func didOpponentServe(for pointInfo: PointInfo, in gameNumber: Int) -> Bool {
+        guard let game = match?.games?.first(where: { $0.gameNumber == gameNumber }) else {
+            return false
+        }
+        
+        let sortedPoints: [(id: String, outcome: Outcome?)]
+        if pointInfo.isStored {
+            let gameStoredPoints = storedPoints
+                .filter { $0.gameNumber == gameNumber }
+                .sorted(by: { $0.timestamp < $1.timestamp })
+            sortedPoints = gameStoredPoints.map { ($0.id, $0.outcomeValue) }
+        } else {
+            guard let points = game.points?.sorted(by: { $0.timestamp < $1.timestamp }) else {
+                return false
+            }
+            sortedPoints = points.map { ($0.uniqueID, $0.outcome) }
+        }
+        
+        guard let pointIndex = sortedPoints.firstIndex(where: { $0.id == pointInfo.id }) else {
+            return false
+        }
+        
+        // Calculate score before this point
+        var playerPoints = 0
+        var opponentPoints = 0
+        for i in 0..<pointIndex {
+            if let outcome = sortedPoints[i].outcome {
+                let score = scoreFromOutcome(outcome)
+                playerPoints += score.player
+                opponentPoints += score.opponent
+            }
+        }
+        
+        return didOpponentServe(
+            pointIndex: pointIndex,
+            playerServesFirst: game.playerServesFirst,
+            playerPoints: playerPoints,
+            opponentPoints: opponentPoints
+        )
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if !validPoints.isEmpty {
@@ -150,12 +230,14 @@ struct PointHistoryView: View {
                                 )
                                 
                                 // Points for this game
+                                let reverseOrder = shouldReverseOrder(for: gameNumber)
                                 ForEach(gamePoints, id: \.id) { pointInfo in
                                     let (point, pointData) = findPoint(for: pointInfo, in: gameNumber)
+                                    let opponentServed = didOpponentServe(for: pointInfo, in: gameNumber)
                                     if let point = point {
-                                        PointHistoryRow(point: point)
+                                        PointHistoryRow(point: point, reverseOrder: reverseOrder, opponentServed: opponentServed)
                                     } else if let pointData = pointData {
-                                        PointHistoryRow(pointData: pointData)
+                                        PointHistoryRow(pointData: pointData, reverseOrder: reverseOrder, opponentServed: opponentServed)
                                     }
                                 }
                             }
@@ -248,15 +330,21 @@ struct GameDivider: View {
 struct PointHistoryRow: View {
     let point: Point?
     let pointData: PointData?
+    let reverseOrder: Bool
+    let opponentServed: Bool
     
-    init(point: Point) {
+    init(point: Point, reverseOrder: Bool = false, opponentServed: Bool = false) {
         self.point = point
         self.pointData = nil
+        self.reverseOrder = reverseOrder
+        self.opponentServed = opponentServed
     }
     
-    init(pointData: PointData) {
+    init(pointData: PointData, reverseOrder: Bool = false, opponentServed: Bool = false) {
         self.point = nil
         self.pointData = pointData
+        self.reverseOrder = reverseOrder
+        self.opponentServed = opponentServed
     }
     
     private var outcome: Outcome? {
@@ -268,10 +356,10 @@ struct PointHistoryRow: View {
             HStack(spacing: 12) {
                 // Stroke sequence with horizontal scrolling (ScrollView is inside StrokeSequenceView)
                 if let point = point {
-                    StrokeSequenceView(point: point)
+                    StrokeSequenceView(point: point, reverseOrder: reverseOrder, opponentServed: opponentServed)
                         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                 } else if let pointData = pointData {
-                    StrokeSequenceView(pointData: pointData)
+                    StrokeSequenceView(pointData: pointData, reverseOrder: reverseOrder, opponentServed: opponentServed)
                         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
                 }
                 

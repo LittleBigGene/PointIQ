@@ -94,6 +94,13 @@ struct QuickLoggingView: View {
         selectedServe != nil || selectedReceive != nil || !selectedRallies.isEmpty
     }
     
+    // MARK: - Preview Header Logic
+    
+    /// Determines if the right side is serving (opponent when not swapped, player when swapped)
+    private var rightSideServes: Bool {
+        shouldSwapPlayers ? isPlayerServing : !isPlayerServing
+    }
+    
     private var placeholderText: (left: String, right: String) {
         // Left side serves when: not swapped and player serves, OR swapped and opponent serves
         let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
@@ -101,22 +108,31 @@ struct QuickLoggingView: View {
     }
     
     private var previewHeader: some View {
-        HStack(spacing: 12) {
+        
+        return HStack(spacing: 12) {
+            // Reset button on left when reversed
+            if hasSelection && rightSideServes {
+                Button(action: resetInput) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
             if hasSelection {
                 StrokeSequenceView(
                     serve: selectedServe,
                     receive: selectedReceive,
                     rallies: selectedRallies,
                     onRallyTap: { index in
-                        // Remove rally at and after the tapped index (undo from that point)
                         if index < selectedRallies.count {
                             selectedRallies.removeSubrange(index..<selectedRallies.count)
                         }
-                    }
+                    },
+                    reverseOrder: rightSideServes
                 )
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: rightSideServes ? .trailing : .leading)
             } else {
-                // Placeholder when nothing is selected - layout matches button arrangement
                 HStack {
                     Text(placeholderText.left)
                         .font(.system(size: 14))
@@ -129,8 +145,8 @@ struct QuickLoggingView: View {
                 .frame(maxWidth: .infinity)
             }
             
-            // Reset button - only show when something is selected
-            if hasSelection {
+            // Reset button on right when not reversed
+            if hasSelection && !rightSideServes {
                 Button(action: resetInput) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
@@ -143,10 +159,7 @@ struct QuickLoggingView: View {
         .background(Color.secondary.opacity(0.05))
         .contentShape(Rectangle())
         .onTapGesture {
-            // Flip serving order only if:
-            // 1. Game exists and has no points played yet (game.pointCount == 0)
-            // 2. No point is currently in play (no selections)
-            // Note: Once a game has started (any points played), serving order is locked
+            // Flip serving order only if game has no points and no current selection
             if let game = currentGame, game.pointCount == 0, !hasSelection {
                 game.playerServesFirst.toggle()
                 try? modelContext.save()
@@ -188,17 +201,16 @@ struct QuickLoggingView: View {
     private var rallyModeContent: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
-                // Animated table tennis ball that moves based on who hits next
                 let totalCount = (selectedServe != nil ? 1 : 0) + (selectedReceive != nil ? 1 : 0) + selectedRallies.count
                 ZStack {
-                    // Rally count centered in the middle
+                    // Rally count centered when exceeding max
                     if totalCount > 10 {
                         Text("\(selectedRallies.count) rallies")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
                     }
                     
-                    // Orange ball that animates through the center
+                    // Animated ball that moves based on who hits next
                     HStack {
                         Circle()
                             .fill(Color.orange)

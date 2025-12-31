@@ -57,20 +57,15 @@ class SupabaseService {
             return
         }
         
-        // Initialize client - session errors are handled internally by the SDK
-        // The "Initial session emitted" error is a non-critical warning when
-        // the SDK tries to restore an invalid/expired session from local storage.
-        // For anonymous/public access, this error can be safely ignored.
+        // Initialize client
+        // Note: "Initial session emitted" warnings are non-critical for anonymous access
         client = SupabaseClient(
             supabaseURL: url,
             supabaseKey: SupabaseConfig.supabaseKey
         )
         
         // Clear any invalid session on startup to prevent refresh errors
-        // This is done asynchronously to avoid blocking initialization
         Task {
-            // Silently clear any existing session to prevent session refresh errors
-            // This is safe for anonymous access where we don't need persistent sessions
             try? await client?.auth.signOut()
         }
         
