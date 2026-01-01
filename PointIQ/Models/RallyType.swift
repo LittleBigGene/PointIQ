@@ -95,11 +95,11 @@ enum RallyType: String, Codable, CaseIterable {
     
     var spinTypeChinese: String {
         switch self {
-        case .dragon: return "強力拉球"
-        case .tiger: return "側身搶拉"
+        case .dragon: return "正手输出"
+        case .tiger: return "移动输出"
         case .crane: return "球速慢，高旋轉"
         case .tortoise: return "擋球 / 控制"
-        case .panda: return "強力拉球"
+        case .panda: return "反手输出"
         case .snake: return "側旋"
         }
     }
