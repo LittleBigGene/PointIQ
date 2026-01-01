@@ -21,6 +21,85 @@ struct ScoreboardView: View {
     
     @AppStorage("playerName") private var playerName: String = "YOU"
     @AppStorage("opponentName") private var opponentName: String = ""
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // MARK: - Translation Helpers
+    
+    private func noActiveMatchText(for language: Language) -> String {
+        switch language {
+        case .english: return "No Active Match"
+        case .japanese: return "アクティブな試合なし"
+        case .chinese: return "沒有進行中的比賽"
+        }
+    }
+    
+    private func serveText(for language: Language) -> String {
+        switch language {
+        case .english: return "SERVE"
+        case .japanese: return "サーブ"
+        case .chinese: return "發球"
+        }
+    }
+    
+    private func receiveText(for language: Language) -> String {
+        switch language {
+        case .english: return "RECEIVE"
+        case .japanese: return "レシーブ"
+        case .chinese: return "接球"
+        }
+    }
+    
+    private func matchText(for language: Language) -> String {
+        switch language {
+        case .english: return "MATCH"
+        case .japanese: return "試合"
+        case .chinese: return "比賽"
+        }
+    }
+    
+    private func bestOfText(for language: Language) -> String {
+        switch language {
+        case .english: return "Best of"
+        case .japanese: return "先取"
+        case .chinese: return "搶"
+        }
+    }
+    
+    private func gameWonText(for language: Language) -> String {
+        switch language {
+        case .english: return "GAME WON"
+        case .japanese: return "ゲーム勝利"
+        case .chinese: return "局勝"
+        }
+    }
+    
+    private func gameLostText(for language: Language) -> String {
+        switch language {
+        case .english: return "GAME LOST"
+        case .japanese: return "ゲーム敗北"
+        case .chinese: return "局敗"
+        }
+    }
+    
+    private func deuceText(for language: Language) -> String {
+        switch language {
+        case .english: return "DEUCE"
+        case .japanese: return "ジュース"
+        case .chinese: return "平分"
+        }
+    }
+    
+    private func gamePointText(for language: Language) -> String {
+        switch language {
+        case .english: return "GAME POINT"
+        case .japanese: return "ゲームポイント"
+        case .chinese: return "局點"
+        }
+    }
     
     // Scale factors for landscape mode
     private var titleFontSize: CGFloat { isLandscape ? 32 : 14 }
@@ -69,7 +148,7 @@ struct ScoreboardView: View {
             } else {
                 VStack {
                     Spacer()
-                    Text("No Active Match")
+                    Text(noActiveMatchText(for: selectedLanguage))
                         .font(.headline)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -108,7 +187,7 @@ struct ScoreboardView: View {
             HStack(spacing: 4) {
                 Text(isServing ? "🫴" : "👁️")
                     .font(.system(size: serveIndicatorFontSize))
-                Text(isServing ? "SERVE" : "RECEIVE")
+                Text(isServing ? serveText(for: selectedLanguage) : receiveText(for: selectedLanguage))
                     .font(.system(size: serveIndicatorFontSize, weight: .semibold))
                     .foregroundColor(.secondary)
             }
@@ -175,7 +254,7 @@ struct ScoreboardView: View {
             HStack(spacing: 4) {
                 Text(isServing ? "🫴" : "👁️")
                     .font(.system(size: serveIndicatorFontSize))
-                Text(isServing ? "SERVE" : "RECEIVE")
+                Text(isServing ? serveText(for: selectedLanguage) : receiveText(for: selectedLanguage))
                     .font(.system(size: serveIndicatorFontSize, weight: .semibold))
                     .foregroundColor(.secondary)
             }
@@ -226,7 +305,7 @@ struct ScoreboardView: View {
         let rightScore = shouldSwapPlayers ? match.gamesWon : match.gamesLost
         
         VStack(alignment: .center, spacing: spacing) {
-            Text("MATCH")
+            Text(matchText(for: selectedLanguage))
                 .font(.system(size: titleFontSize, weight: .black))
                 .foregroundColor(.secondary)
                 .padding(.top, isLandscape ? 8 : 0)
@@ -246,7 +325,7 @@ struct ScoreboardView: View {
             if game.pointCount == 0 {
                 // Before game starts: show label and slider
                 VStack(spacing: isLandscape ? 8 : 4) {
-                    Text("Best of")
+                    Text(bestOfText(for: selectedLanguage))
                         .font(.system(size: serveIndicatorFontSize, weight: .semibold))
                         .foregroundColor(.secondary)
                         .padding(.bottom, isLandscape ? 0 : 4)
@@ -270,7 +349,7 @@ struct ScoreboardView: View {
                 .frame(minHeight: isLandscape ? 50 : 30)
             } else {
                 // After game starts: show "Best of X" text where slider was
-                Text("Best of \(match.bestOf)")
+                Text("\(bestOfText(for: selectedLanguage)) \(match.bestOf)")
                     .font(.system(size: serveIndicatorFontSize, weight: .semibold))
                     .foregroundColor(.secondary)
                     .frame(width: isLandscape ? 180 : 90)
@@ -281,17 +360,17 @@ struct ScoreboardView: View {
             
             // Status indicator
             if game.isComplete {
-                Text(game.winner == true ? "GAME WON" : "GAME LOST")
+                Text(game.winner == true ? gameWonText(for: selectedLanguage) : gameLostText(for: selectedLanguage))
                     .font(.system(size: statusFontSize, weight: .bold))
                     .foregroundColor(game.winner == true ? .blue : .red)
             } else if game.isDeuce {
-                Text("DEUCE")
+                Text(deuceText(for: selectedLanguage))
                     .font(.system(size: statusFontSize, weight: .bold))
                     .foregroundColor(.orange)
             } else {
                 let status = game.statusMessage
                 if status == "Game Point" {
-                    Text("GAME POINT")
+                    Text(gamePointText(for: selectedLanguage))
                         .font(.system(size: statusFontSize, weight: .bold))
                         .foregroundColor(.orange)
                 } else {

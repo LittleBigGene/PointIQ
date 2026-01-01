@@ -21,6 +21,64 @@ struct LegendView: View {
     
     private let topOffset: CGFloat = -40
     
+    // MARK: - Translation Helpers
+    
+    private func gameRulesText(for language: Language) -> String {
+        switch language {
+        case .english: return "Game Rules"
+        case .japanese: return "ゲームルール"
+        case .chinese: return "比賽規則"
+        }
+    }
+    
+    private func pointsToWinText(for language: Language) -> String {
+        switch language {
+        case .english: return "Points to Win"
+        case .japanese: return "勝利点数"
+        case .chinese: return "獲勝分數"
+        }
+    }
+    
+    private func pointsToWinDescription(for language: Language) -> String {
+        switch language {
+        case .english: return "\(Rules.pointsToWinGame) points"
+        case .japanese: return "\(Rules.pointsToWinGame)点"
+        case .chinese: return "\(Rules.pointsToWinGame)分"
+        }
+    }
+    
+    private func winBy2Text(for language: Language) -> String {
+        switch language {
+        case .english: return "Win by 2"
+        case .japanese: return "2点差で勝利"
+        case .chinese: return "領先2分獲勝"
+        }
+    }
+    
+    private func winBy2Description(for language: Language) -> String {
+        switch language {
+        case .english: return "Must lead by at least 2 points"
+        case .japanese: return "最低2点のリードが必要"
+        case .chinese: return "必須領先至少2分"
+        }
+    }
+    
+    private func deuceText(for language: Language) -> String {
+        switch language {
+        case .english: return "Deuce"
+        case .japanese: return "ジュース"
+        case .chinese: return "平分"
+        }
+    }
+    
+    private func deuceDescription(for language: Language) -> String {
+        switch language {
+        case .english: return "At 10-10, serve alternates every point"
+        case .japanese: return "10-10の時、サーブは毎ポイント交代"
+        case .chinese: return "10-10時，每分換發球"
+        }
+    }
+    
     private var allExpanded: Bool {
         isServeExpanded && isReceiveExpanded && isRallyExpanded && isOutcomesExpanded && isGameRulesExpanded
     }
@@ -173,23 +231,23 @@ struct LegendView: View {
                     DisclosureGroup(isExpanded: $isGameRulesExpanded) {
                         VStack(alignment: .leading, spacing: 8) {
                             RuleRow(
-                                title: "Points to Win",
-                                description: "\(Rules.pointsToWinGame) points"
+                                title: pointsToWinText(for: selectedLanguage),
+                                description: pointsToWinDescription(for: selectedLanguage)
                             )
                             RuleRow(
-                                title: "Win by 2",
-                                description: "Must lead by at least 2 points"
+                                title: winBy2Text(for: selectedLanguage),
+                                description: winBy2Description(for: selectedLanguage)
                             )
                             RuleRow(
-                                title: "Deuce",
-                                description: "At 10-10, serve alternates every point"
+                                title: deuceText(for: selectedLanguage),
+                                description: deuceDescription(for: selectedLanguage)
                             )
                         }
                     } label: {
                         HStack(spacing: 8) {
                             Text("📋")
                                 .font(.title2)
-                            Text("Game Rules")
+                            Text(gameRulesText(for: selectedLanguage))
                                 .font(.title2)
                                 .fontWeight(.bold)
                         }

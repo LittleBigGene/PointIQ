@@ -76,6 +76,12 @@ struct StrokeSequenceView: View {
     var reverseOrder: Bool = false // If true, display sequence from right to left
     var opponentServed: Bool = false // If true, opponent started the sequence with a serve
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     // MARK: - Initialization Helpers
     
     private static func extractServeInfo(from serve: ServeType?) -> (shortName: String?, emoji: String?) {
@@ -242,13 +248,21 @@ struct StrokeSequenceView: View {
         }
     }
     
+    private func oppTagText(for language: Language) -> String {
+        switch language {
+        case .english: return "Opp"
+        case .japanese: return "相手"
+        case .chinese: return "對手"
+        }
+    }
+    
     /// Creates an emoji view for a sequence item
     @ViewBuilder
     private func emojiView(for item: (emoji: String, originalRallyIndex: Int?, type: EmojiType), at index: Int) -> some View {
         HStack(spacing: 4) {
             // Show "Opp" tag for serve type when opponent served
             if item.type == .serve && opponentServed {
-                Text("Opp")
+                Text(oppTagText(for: selectedLanguage))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
@@ -388,11 +402,17 @@ struct ServeTypeButton: View {
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         VStack(spacing: 6) {
             Text(serveType.shortName)
                 .font(.system(size: 20, weight: .bold))
-            Text(serveType.displayName)
+            Text(serveType.displayName(for: selectedLanguage))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
                 .lineLimit(2)
@@ -413,11 +433,17 @@ struct ReceiveTypeButton: View {
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         VStack(spacing: 6) {
             Text(receiveType.emoji)
                 .font(.system(size: 20))
-            Text(receiveType.displayName)
+            Text(receiveType.displayName(for: selectedLanguage))
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -436,12 +462,18 @@ struct RallyTypeButton: View {
     let isSelected: Bool
     let action: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Text(rallyType.emoji)
                     .font(.system(size: 28))
-                Text(rallyType.displayName)
+                Text(rallyType.displayName(for: selectedLanguage))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
@@ -460,12 +492,18 @@ struct OutcomeButton: View {
     let isSelected: Bool
     let action: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Text(outcome.emoji)
                     .font(.system(size: 20))
-                Text(outcome.displayName)
+                Text(outcome.displayName(for: selectedLanguage))
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)

@@ -42,6 +42,85 @@ struct ContentView: View {
     @AppStorage("opponentBackhandRubber") private var opponentBackhandRubber: String = ""
     @AppStorage("opponentEloRating") private var opponentEloRating: String = ""
     @AppStorage("opponentClubName") private var opponentClubName: String = ""
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // MARK: - Translation Helpers
+    
+    private func resetMatchText(for language: Language) -> String {
+        switch language {
+        case .english: return "Reset Match"
+        case .japanese: return "試合リセット"
+        case .chinese: return "重置比賽"
+        }
+    }
+    
+    private func cancelText(for language: Language) -> String {
+        switch language {
+        case .english: return "Cancel"
+        case .japanese: return "キャンセル"
+        case .chinese: return "取消"
+        }
+    }
+    
+    private func addToHistoryText(for language: Language) -> String {
+        switch language {
+        case .english: return "Add to History"
+        case .japanese: return "履歴に追加"
+        case .chinese: return "加入歷史"
+        }
+    }
+    
+    private func resetText(for language: Language) -> String {
+        switch language {
+        case .english: return "Reset"
+        case .japanese: return "リセット"
+        case .chinese: return "重置"
+        }
+    }
+    
+    private func resetMatchMessageText(for language: Language) -> String {
+        switch language {
+        case .english: return "Choose an option:\n\n• Add to History: Upload match to cloud, then reset\n• Reset: Delete match locally and start new"
+        case .japanese: return "オプションを選択:\n\n• 履歴に追加: クラウドにアップロードしてからリセット\n• リセット: ローカルで削除して新規開始"
+        case .chinese: return "選擇選項:\n\n• 加入歷史: 上傳比賽到雲端，然後重置\n• 重置: 本地刪除並開始新比賽"
+        }
+    }
+    
+    private func uploadErrorText(for language: Language) -> String {
+        switch language {
+        case .english: return "Upload Error"
+        case .japanese: return "アップロードエラー"
+        case .chinese: return "上傳錯誤"
+        }
+    }
+    
+    private func okText(for language: Language) -> String {
+        switch language {
+        case .english: return "OK"
+        case .japanese: return "OK"
+        case .chinese: return "確定"
+        }
+    }
+    
+    private func failedToUploadText(for language: Language, error: String) -> String {
+        switch language {
+        case .english: return "Failed to upload match: \(error)"
+        case .japanese: return "試合のアップロードに失敗: \(error)"
+        case .chinese: return "上傳比賽失敗: \(error)"
+        }
+    }
+    
+    private func savingProfilesText(for language: Language) -> String {
+        switch language {
+        case .english: return "Saving profiles and uploading match..."
+        case .japanese: return "プロフィールを保存して試合をアップロード中..."
+        case .chinese: return "正在保存個人資料並上傳比賽..."
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -126,24 +205,24 @@ struct ContentView: View {
                 currentMatchIDString = ""
             }
         }
-        .alert("Reset Match", isPresented: $showResetMatchConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Add to History", role: .none) {
+        .alert(resetMatchText(for: selectedLanguage), isPresented: $showResetMatchConfirmation) {
+            Button(cancelText(for: selectedLanguage), role: .cancel) { }
+            Button(addToHistoryText(for: selectedLanguage), role: .none) {
                 shareAndResetMatch()
             }
-            Button("Reset", role: .destructive) {
+            Button(resetText(for: selectedLanguage), role: .destructive) {
                 resetMatch()
             }
         } message: {
-            Text("Choose an option:\n\n• Add to History: Upload match to cloud, then reset\n• Reset: Delete match locally and start new")
+            Text(resetMatchMessageText(for: selectedLanguage))
         }
-        .alert("Upload Error", isPresented: $showUploadError) {
-            Button("OK", role: .cancel) {
+        .alert(uploadErrorText(for: selectedLanguage), isPresented: $showUploadError) {
+            Button(okText(for: selectedLanguage), role: .cancel) {
                 uploadError = nil
             }
         } message: {
             if let error = uploadError {
-                Text("Failed to upload match: \(error)")
+                Text(failedToUploadText(for: selectedLanguage, error: error))
             }
         }
         .overlay {
@@ -155,7 +234,7 @@ struct ContentView: View {
                     VStack(spacing: 16) {
                         ProgressView()
                             .scaleEffect(1.5)
-                        Text("Saving profiles and uploading match...")
+                        Text(savingProfilesText(for: selectedLanguage))
                             .font(.headline)
                             .foregroundColor(.primary)
                     }

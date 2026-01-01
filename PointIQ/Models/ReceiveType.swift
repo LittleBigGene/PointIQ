@@ -31,8 +31,8 @@ enum ReceiveType: String, Codable, CaseIterable {
         switch self {
         case .push: return "ツッツキ・ストップ"
         case .chopBlock: return "カット・ブロック"
-        case .forehandFlick: return "フォアハンドフリック"
-        case .backhandFlick: return "チキータ・フリック"
+        case .forehandFlick: return "フリック"
+        case .backhandFlick: return "チキータ"
         case .reverseFlick: return "逆チキータ"
         case .attack: return "打たれる"
         }
@@ -40,12 +40,12 @@ enum ReceiveType: String, Codable, CaseIterable {
     
     var displayNameChinese: String {
         switch self {
-        case .push: return "劈長/擺短"
-        case .chopBlock: return "削/切/抹"
+        case .push: return "劈長，擺短"
+        case .chopBlock: return "削，切，抹"
         case .forehandFlick: return "臺內挑打"
         case .backhandFlick: return "霸王擰"
         case .reverseFlick: return "草莓擰"
-        case .attack: return "上手搶攻"
+        case .attack: return "出臺搶攻"
         }
     }
     
@@ -100,7 +100,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         case .forehandFlick: return "上旋 / 不轉"
         case .backhandFlick: return "上旋 / 側旋"
         case .reverseFlick: return "上旋 / 側旋"
-        case .attack: return "積極進攻"
+        case .attack: return "積極主動"
         }
     }
     
@@ -129,7 +129,7 @@ enum ReceiveType: String, Codable, CaseIterable {
     var whyItWorksChinese: String {
         switch self {
         case .push: return "帶下旋的控制性防守技術 — 基本接發球技術。"
-        case .chopBlock: return "結合下旋和防守性擋球動作。"
+        case .chopBlock: return "結合下旋或侧切的防守性擋球動作 - 打乱对手节奏。"
         case .forehandFlick: return "臺內挑打 — 帶上旋或不轉的進攻技術。"
         case .backhandFlick: return "霸王擰 — 帶上旋和側旋的進攻技術。"
         case .reverseFlick: return "草莓擰 — 帶反向旋轉變化的擰拉技術。"

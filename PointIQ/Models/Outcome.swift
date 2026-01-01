@@ -32,17 +32,17 @@ enum Outcome: String, Codable, CaseIterable {
         case .opponentError: return "相手のミス"
         case .myError: return "自分のミス"
         case .iMissed: return "ノータッチ"
-        case .unlucky: return "ネット/エッジ"
+        case .unlucky: return "ネット・エッジ"
         }
     }
     
     var displayNameChinese: String {
         switch self {
-        case .myWinner: return "得分好球"
+        case .myWinner: return "拉穿得分"
         case .opponentError: return "對手失誤"
         case .myError: return "自己失誤"
         case .iMissed: return "沒碰到球"
-        case .unlucky: return "擦網擦邊"
+        case .unlucky: return "擦邊擦網"
         }
     }
     

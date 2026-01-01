@@ -26,6 +26,29 @@ struct QuickLoggingView: View {
     @State private var selectedOutcome: Outcome?
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // MARK: - Translation Helpers
+    
+    private func serveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Serve"
+        case .japanese: return "サーブ"
+        case .chinese: return "發球"
+        }
+    }
+    
+    private func receiveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Receive"
+        case .japanese: return "レシーブ"
+        case .chinese: return "接球"
+        }
+    }
     
     private var isInRallyMode: Bool {
         selectedServe != nil && selectedReceive != nil
@@ -104,7 +127,9 @@ struct QuickLoggingView: View {
     private var placeholderText: (left: String, right: String) {
         // Left side serves when: not swapped and player serves, OR swapped and opponent serves
         let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
-        return leftIsServing ? ("Serve", "Receive") : ("Receive", "Serve")
+        let serve = serveText(for: selectedLanguage)
+        let receive = receiveText(for: selectedLanguage)
+        return leftIsServing ? (serve, receive) : (receive, serve)
     }
     
     private var previewHeader: some View {

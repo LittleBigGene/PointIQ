@@ -29,23 +29,23 @@ enum RallyType: String, Codable, CaseIterable {
     
     var displayNameJapanese: String {
         switch self {
-        case .dragon: return "フォアハンド"
-        case .tiger: return "回り込み"
-        case .crane: return "トップスピンリフト"
-        case .tortoise: return "ブロック"
-        case .panda: return "パンダハンド"
-        case .snake: return "変化球"
+        case .dragon: return "龍"
+        case .tiger: return "虎"
+        case .crane: return "鶴"
+        case .tortoise: return "亀"
+        case .panda: return "パンダ"
+        case .snake: return "蛇"
         }
     }
     
     var displayNameChinese: String {
         switch self {
-        case .dragon: return "攻拉撇拐，龍之正手"
-        case .tiger: return "側身搶拉，飛虎撲食"
-        case .crane: return "加转弧圈，白鶴亮翅"
-        case .tortoise: return "推擋貼防，穩如泰山"
-        case .panda: return "快帶快撕，暴力熊貓"
-        case .snake: return "側拐高球，大蟒地帶"
+        case .dragon: return "青龙"
+        case .tiger: return "白虎"
+        case .crane: return "朱雀"
+        case .tortoise: return "玄武"
+        case .panda: return "熊猫"
+        case .snake: return "蟒蛇"
         }
     }
     
@@ -98,9 +98,9 @@ enum RallyType: String, Codable, CaseIterable {
         case .dragon: return "正手输出"
         case .tiger: return "移动输出"
         case .crane: return "球速慢，高旋轉"
-        case .tortoise: return "擋球 / 控制"
+        case .tortoise: return "擋球，控制"
         case .panda: return "反手输出"
-        case .snake: return "側旋"
+        case .snake: return "側拐高球"
         }
     }
     
@@ -129,8 +129,8 @@ enum RallyType: String, Codable, CaseIterable {
     var whyItWorksChinese: String {
         switch self {
         case .dragon: return "攻拉撇拐，龍之正手 — 馬龍的正手強力拉球，主導、強力、標誌性技術。"
-        case .tiger: return "側身搶拉，飛虎撲食 — 積極、基於位置的進攻。"
-        case .crane: return "加转弧圈，白鶴亮翅 — 高吊弧圈球，優雅、控制、高旋轉弧線。"
+        case .tiger: return "側身搶拉，饿虎撲食 — 積極、基於位置的進攻。"
+        case .crane: return "加转弧圈，朱雀展翅 — 高吊弧圈球，優雅、控制、高旋轉弧線。"
         case .tortoise: return "推擋貼防，穩如泰山 — 冷靜、穩定，精確控制下改變對手力量方向。"
         case .panda: return "快帶快撕，暴力熊貓 — 樊振東的反手強力拉球，強力、爆發、標誌性技術。"
         case .snake: return "側拐高球，大蟒地帶 — 側旋技術，弧線、欺騙性，產生不可預測的彈跳。"
