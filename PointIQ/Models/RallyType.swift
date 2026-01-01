@@ -29,12 +29,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var displayNameJapanese: String {
         switch self {
-        case .dragon: return "ドラゴン"
-        case .tiger: return "タイガー"
-        case .crane: return "クレーン"
-        case .tortoise: return "カメ"
-        case .panda: return "パンダ"
-        case .snake: return "ヘビ"
+        case .dragon: return "フォアハンド"
+        case .tiger: return "回り込み"
+        case .crane: return "トップスピンリフト"
+        case .tortoise: return "ブロック"
+        case .panda: return "パンダハンド"
+        case .snake: return "変化球"
         }
     }
     
@@ -42,8 +42,8 @@ enum RallyType: String, Codable, CaseIterable {
         switch self {
         case .dragon: return "攻拉撇拐，龙之正手"
         case .tiger: return "侧身抢拉，飞虎扑食"
-        case .crane: return "高调弧圈，白鹤亮翅"
-        case .tortoise: return "推挡贴防，防守如龟"
+        case .crane: return "高吊弧圈，白鹤亮翅"
+        case .tortoise: return "推挡贴防，稳如泰山"
         case .panda: return "快带快撕，暴力熊猫"
         case .snake: return "侧拐高球，大蟒地带"
         }
@@ -128,12 +128,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var whyItWorksChinese: String {
         switch self {
-        case .dragon: return "马龙的正手强力拉球 — 主导、强力、标志性技术。"
-        case .tiger: return "侧身正手抢拉 — 积极、基于位置的进攻。"
-        case .crane: return "慢速高弧旋转弧圈 — 优雅、控制、高旋转弧线。"
-        case .tortoise: return "挡球 — 冷静、稳定，精确控制下改变对手力量方向。"
-        case .panda: return "樊振东的反手强力拉球 — 强力、爆发、标志性技术。"
-        case .snake: return "侧旋技术 — 弧线、欺骗性，产生不可预测的弹跳。"
+        case .dragon: return "攻拉撇拐，龙之正手 — 马龙的正手强力拉球，主导、强力、标志性技术。"
+        case .tiger: return "侧身抢拉，飞虎扑食 — 积极、基于位置的进攻。"
+        case .crane: return "高吊弧圈，白鹤亮翅 — 慢速高弧旋转弧圈，优雅、控制、高旋转弧线。"
+        case .tortoise: return "推挡贴防，稳如泰山 — 冷静、稳定，精确控制下改变对手力量方向。"
+        case .panda: return "快带快撕，暴力熊猫 — 樊振东的反手强力拉球，强力、爆发、标志性技术。"
+        case .snake: return "侧拐高球，大蟒地带 — 侧旋技术，弧线、欺骗性，产生不可预测的弹跳。"
         }
     }
     

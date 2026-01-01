@@ -29,20 +29,20 @@ enum ReceiveType: String, Codable, CaseIterable {
     
     var displayNameJapanese: String {
         switch self {
-        case .push: return "プッシュ"
+        case .push: return "ストップ・ツッツキ"
         case .chopBlock: return "チョップ/ブロック"
-        case .forehandFlick: return "フォアハンドフリック"
-        case .backhandFlick: return "バックハンドフリック"
-        case .reverseFlick: return "リバースフリック"
-        case .attack: return "アタック"
+        case .forehandFlick: return "フォア・フリック"
+        case .backhandFlick: return "チキータ・フリック"
+        case .reverseFlick: return "いちご・フリック"
+        case .attack: return "打たれる"
         }
     }
     
     var displayNameChinese: String {
         switch self {
-        case .push: return "摆短/劈长"
+        case .push: return "劈长/摆短"
         case .chopBlock: return "削/切/抹"
-        case .forehandFlick: return "挑打"
+        case .forehandFlick: return "台内挑打"
         case .backhandFlick: return "霸王拧"
         case .reverseFlick: return "草莓拧"
         case .attack: return "上手抢攻"
@@ -85,10 +85,10 @@ enum ReceiveType: String, Codable, CaseIterable {
     var spinTypeJapanese: String {
         switch self {
         case .push: return "下回転"
-        case .chopBlock: return "下回転 / 横回転 / 吸収"
-        case .forehandFlick: return "上回転 / 横回転"
-        case .backhandFlick: return "上回転 / 横回転"
-        case .reverseFlick: return "上回転 / 横回転"
+        case .chopBlock: return "下回転・横回転・吸収"
+        case .forehandFlick: return "上回転・ナックル"
+        case .backhandFlick: return "上回転・横回転"
+        case .reverseFlick: return "上回転・横回転"
         case .attack: return "積極的な攻撃"
         }
     }
@@ -97,7 +97,7 @@ enum ReceiveType: String, Codable, CaseIterable {
         switch self {
         case .push: return "下旋"
         case .chopBlock: return "下旋 / 侧旋 / 减力"
-        case .forehandFlick: return "上旋 / 侧旋"
+        case .forehandFlick: return "上旋 / 不转"
         case .backhandFlick: return "上旋 / 侧旋"
         case .reverseFlick: return "上旋 / 侧旋"
         case .attack: return "积极进攻"
@@ -118,10 +118,10 @@ enum ReceiveType: String, Codable, CaseIterable {
     var whyItWorksJapanese: String {
         switch self {
         case .push: return "下回転を伴う制御された守備的ストローク — 基本的なレシーブ技術。"
-        case .chopBlock: return "強い下回転と守備的なブロック動作を組み合わせた。"
-        case .forehandFlick: return "フリックのフォアハンドバリエーション — 上回転と横回転を伴う攻撃的ストローク。"
-        case .backhandFlick: return "フリックのバックハンドバリエーション — 上回転と横回転を伴う攻撃的ストローク。"
-        case .reverseFlick: return "逆回転のバリエーションを持つ欺瞞的なストローク。"
+        case .chopBlock: return "下回転と横回転を組み合わせた守備的なブロック動作。"
+        case .forehandFlick: return "フォア・フリック — 上回転またはナックルを伴う攻撃的ストローク。"
+        case .backhandFlick: return "チキータ・フリック — 上回転と横回転を伴う攻撃的ストローク。"
+        case .reverseFlick: return "逆チキータ・フリック — 逆回転のバリエーションを持つ欺瞞的なストローク。"
         case .attack: return "相手からの積極的で強力な攻撃を受けた。"
         }
     }
@@ -129,11 +129,11 @@ enum ReceiveType: String, Codable, CaseIterable {
     var whyItWorksChinese: String {
         switch self {
         case .push: return "带下旋的控制性防守技术 — 基本接发球技术。"
-        case .chopBlock: return "结合重下旋和防守性挡球动作。"
-        case .forehandFlick: return "正手挑球变化 — 带上旋和侧旋的进攻技术。"
-        case .backhandFlick: return "反手挑球变化 — 带上旋和侧旋的进攻技术。"
-        case .reverseFlick: return "带反向旋转变化的欺骗性技术。"
-        case .attack: return "接对手的积极、强力进攻。"
+        case .chopBlock: return "结合下旋和防守性挡球动作。"
+        case .forehandFlick: return "台内挑打 — 带上旋或不转的进攻技术。"
+        case .backhandFlick: return "霸王拧 — 带上旋和侧旋的进攻技术。"
+        case .reverseFlick: return "草莓拧 — 带反向旋转变化的拧拉技术。"
+        case .attack: return "积极上手、强力进攻。"
         }
     }
     

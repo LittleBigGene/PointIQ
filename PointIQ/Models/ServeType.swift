@@ -31,10 +31,10 @@ enum ServeType: String, Codable, CaseIterable {
         switch self {
         case .SS: return "回転・ショート"
         case .SL: return "回転・ロング"
-        case .DS: return "無回転・ショート"
-        case .DL: return "無回転・ロング"
+        case .DS: return "ナックル・ショート"
+        case .DL: return "ナックル・ロング"
         case .HU: return "強い下回転"
-        case .FL: return "速い・ロング"
+        case .FL: return "真上・ロング"
         }
     }
     
