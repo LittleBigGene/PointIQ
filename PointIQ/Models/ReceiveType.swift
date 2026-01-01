@@ -31,9 +31,9 @@ enum ReceiveType: String, Codable, CaseIterable {
         switch self {
         case .push: return "ツッツキ・ストップ"
         case .chopBlock: return "カット・ブロック"
-        case .forehandFlick: return "フォア・フリック"
+        case .forehandFlick: return "フォアハンドフリック"
         case .backhandFlick: return "チキータ・フリック"
-        case .reverseFlick: return "逆チキータ・フリック"
+        case .reverseFlick: return "逆チキータ"
         case .attack: return "打たれる"
         }
     }
@@ -119,9 +119,9 @@ enum ReceiveType: String, Codable, CaseIterable {
         switch self {
         case .push: return "下回転を伴う制御された守備的ストローク — 基本的なレシーブ技術。"
         case .chopBlock: return "下回転と横回転を組み合わせた守備的なブロック動作。"
-        case .forehandFlick: return "フォア・フリック — 上回転またはナックルを伴う攻撃的ストローク。"
+        case .forehandFlick: return "フォアハンドフリック — ナックルか弱い上回転で返す台上技術。"
         case .backhandFlick: return "チキータ・フリック — 上回転と横回転を伴う攻撃的ストローク。"
-        case .reverseFlick: return "逆チキータ・フリック — 逆回転のバリエーションを持つ欺瞞的なストローク。"
+        case .reverseFlick: return "逆チキータ — 逆回転のバリエーションを持つ欺瞞的なストローク。"
         case .attack: return "相手からの積極的で強力な攻撃を受けた。"
         }
     }

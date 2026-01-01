@@ -84,12 +84,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var spinTypeJapanese: String {
         switch self {
-        case .dragon: return "パワードライブ"
-        case .tiger: return "ステップアラウンド"
-        case .crane: return "スロー回転ループ"
+        case .dragon: return "フォアハンドドライブ"
+        case .tiger: return "回り込み"
+        case .crane: return "スロートップスピンリフト"
         case .tortoise: return "ブロック / コントロール"
-        case .panda: return "パワードライブ"
-        case .snake: return "横回転"
+        case .panda: return "バックハンドドライブ"
+        case .snake: return "変化球"
         }
     }
     
