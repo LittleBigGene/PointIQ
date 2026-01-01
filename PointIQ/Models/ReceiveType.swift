@@ -29,11 +29,11 @@ enum ReceiveType: String, Codable, CaseIterable {
     
     var displayNameJapanese: String {
         switch self {
-        case .push: return "ストップ・ツッツキ"
-        case .chopBlock: return "チョップ/ブロック"
+        case .push: return "ツッツキ・ストップ"
+        case .chopBlock: return "カット・ブロック"
         case .forehandFlick: return "フォア・フリック"
         case .backhandFlick: return "チキータ・フリック"
-        case .reverseFlick: return "いちご・フリック"
+        case .reverseFlick: return "逆チキータ・フリック"
         case .attack: return "打たれる"
         }
     }
