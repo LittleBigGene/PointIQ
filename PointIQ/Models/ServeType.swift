@@ -40,12 +40,12 @@ enum ServeType: String, Codable, CaseIterable {
     
     var displayNameChinese: String {
         switch self {
-        case .SS: return "转的短球"
-        case .SL: return "转的长球"
-        case .DS: return "不转短球"
-        case .DL: return "不转长球"
-        case .HU: return "强下旋球"
-        case .FL: return "急快长球"
+        case .SS: return "轉的短球"
+        case .SL: return "轉的長球"
+        case .DS: return "不轉短球"
+        case .DL: return "不轉長球"
+        case .HU: return "強下旋球"
+        case .FL: return "急快長球"
         }
     }
     

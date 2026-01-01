@@ -39,10 +39,10 @@ enum Outcome: String, Codable, CaseIterable {
     var displayNameChinese: String {
         switch self {
         case .myWinner: return "得分好球"
-        case .opponentError: return "对手失误"
-        case .myError: return "自己失误"
-        case .iMissed: return "没碰到球"
-        case .unlucky: return "擦网擦边"
+        case .opponentError: return "對手失誤"
+        case .myError: return "自己失誤"
+        case .iMissed: return "沒碰到球"
+        case .unlucky: return "擦網擦邊"
         }
     }
     

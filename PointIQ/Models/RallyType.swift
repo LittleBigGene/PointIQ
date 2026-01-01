@@ -40,12 +40,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var displayNameChinese: String {
         switch self {
-        case .dragon: return "攻拉撇拐，龙之正手"
-        case .tiger: return "侧身抢拉，飞虎扑食"
-        case .crane: return "高吊弧圈，白鹤亮翅"
-        case .tortoise: return "推挡贴防，稳如泰山"
-        case .panda: return "快带快撕，暴力熊猫"
-        case .snake: return "侧拐高球，大蟒地带"
+        case .dragon: return "攻拉撇拐，龍之正手"
+        case .tiger: return "側身搶拉，飛虎撲食"
+        case .crane: return "高吊弧圈，白鶴亮翅"
+        case .tortoise: return "推擋貼防，穩如泰山"
+        case .panda: return "快帶快撕，暴力熊貓"
+        case .snake: return "側拐高球，大蟒地帶"
         }
     }
     
@@ -95,12 +95,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var spinTypeChinese: String {
         switch self {
-        case .dragon: return "强力拉球"
-        case .tiger: return "侧身抢拉"
-        case .crane: return "慢速旋转弧圈"
-        case .tortoise: return "挡球 / 控制"
-        case .panda: return "强力拉球"
-        case .snake: return "侧旋"
+        case .dragon: return "強力拉球"
+        case .tiger: return "側身搶拉"
+        case .crane: return "慢速旋轉弧圈"
+        case .tortoise: return "擋球 / 控制"
+        case .panda: return "強力拉球"
+        case .snake: return "側旋"
         }
     }
     
@@ -128,12 +128,12 @@ enum RallyType: String, Codable, CaseIterable {
     
     var whyItWorksChinese: String {
         switch self {
-        case .dragon: return "攻拉撇拐，龙之正手 — 马龙的正手强力拉球，主导、强力、标志性技术。"
-        case .tiger: return "侧身抢拉，飞虎扑食 — 积极、基于位置的进攻。"
-        case .crane: return "高吊弧圈，白鹤亮翅 — 慢速高弧旋转弧圈，优雅、控制、高旋转弧线。"
-        case .tortoise: return "推挡贴防，稳如泰山 — 冷静、稳定，精确控制下改变对手力量方向。"
-        case .panda: return "快带快撕，暴力熊猫 — 樊振东的反手强力拉球，强力、爆发、标志性技术。"
-        case .snake: return "侧拐高球，大蟒地带 — 侧旋技术，弧线、欺骗性，产生不可预测的弹跳。"
+        case .dragon: return "攻拉撇拐，龍之正手 — 馬龍的正手強力拉球，主導、強力、標誌性技術。"
+        case .tiger: return "側身搶拉，飛虎撲食 — 積極、基於位置的進攻。"
+        case .crane: return "高吊弧圈，白鶴亮翅 — 慢速高弧旋轉弧圈，優雅、控制、高旋轉弧線。"
+        case .tortoise: return "推擋貼防，穩如泰山 — 冷靜、穩定，精確控制下改變對手力量方向。"
+        case .panda: return "快帶快撕，暴力熊貓 — 樊振東的反手強力拉球，強力、爆發、標誌性技術。"
+        case .snake: return "側拐高球，大蟒地帶 — 側旋技術，弧線、欺騙性，產生不可預測的彈跳。"
         }
     }
     
