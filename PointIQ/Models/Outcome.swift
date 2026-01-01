@@ -29,9 +29,9 @@ enum Outcome: String, Codable, CaseIterable {
     var displayNameJapanese: String {
         switch self {
         case .myWinner: return "チョレ"
-        case .opponentError: return "相手エラー"
-        case .myError: return "エラー"
-        case .iMissed: return "ミス"
+        case .opponentError: return "相手のミス"
+        case .myError: return "自分のミス"
+        case .iMissed: return "ノータッチ"
         case .unlucky: return "ネット/エッジ"
         }
     }
