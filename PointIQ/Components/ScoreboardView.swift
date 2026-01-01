@@ -242,30 +242,42 @@ struct ScoreboardView: View {
                     .foregroundColor(shouldSwapPlayers ? .blue : .red)
             }
             
-            // Match format slider - aligned with serve/receive indicators
-            VStack(spacing: isLandscape ? 8 : 4) {
-                Text("Best of")
+            // Match format - show slider before game starts, show text only after
+            if game.pointCount == 0 {
+                // Before game starts: show label and slider
+                VStack(spacing: isLandscape ? 8 : 4) {
+                    Text("Best of")
+                        .font(.system(size: serveIndicatorFontSize, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, isLandscape ? 0 : 4)
+                    Picker("Match Format", selection: Binding(
+                        get: { match.bestOf },
+                        set: { newValue in
+                            match.bestOf = newValue
+                            try? modelContext.save()
+                        }
+                    )) {
+                        Text("3").tag(3)
+                        Text("5").tag(5)
+                        Text("7").tag(7)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: isLandscape ? 180 : 90)
+                    .frame(height: isLandscape ? 32 : 20)
+                }
+                .padding(.top, isLandscape ? -16 : 0)
+                .padding(.bottom, isLandscape ? 4 : 0)
+                .frame(minHeight: isLandscape ? 50 : 30)
+            } else {
+                // After game starts: show "Best of X" text where slider was
+                Text("Best of \(match.bestOf)")
                     .font(.system(size: serveIndicatorFontSize, weight: .semibold))
                     .foregroundColor(.secondary)
-                    .padding(.bottom, isLandscape ? 0 : 4)
-                Picker("Match Format", selection: Binding(
-                    get: { match.bestOf },
-                    set: { newValue in
-                        match.bestOf = newValue
-                        try? modelContext.save()
-                    }
-                )) {
-                    Text("3").tag(3)
-                    Text("5").tag(5)
-                    Text("7").tag(7)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: isLandscape ? 180 : 90)
-                .frame(height: isLandscape ? 32 : 20)
+                    .frame(width: isLandscape ? 180 : 90)
+                    .frame(height: isLandscape ? 32 : 20)
+                    .padding(.top, isLandscape ? -16 : 0)
+                    .padding(.bottom, isLandscape ? 4 : 0)
             }
-            .padding(.top, isLandscape ? -16 : 0)
-            .padding(.bottom, isLandscape ? 4 : 0)
-            .frame(minHeight: isLandscape ? 50 : 30)
             
             // Status indicator
             if game.isComplete {

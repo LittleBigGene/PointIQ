@@ -57,10 +57,18 @@ class SupabaseService {
             return
         }
         
+        // Initialize client
+        // Note: "Initial session emitted" warnings are non-critical for anonymous access
         client = SupabaseClient(
             supabaseURL: url,
             supabaseKey: SupabaseConfig.supabaseKey
         )
+        
+        // Clear any invalid session on startup to prevent refresh errors
+        Task {
+            try? await client?.auth.signOut()
+        }
+        
         print("✅ Supabase client initialized successfully")
         #else
         print("⚠️ Supabase SDK not available. Please add the Supabase Swift package.")

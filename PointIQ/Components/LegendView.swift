@@ -13,6 +13,11 @@ struct LegendView: View {
     @AppStorage("legendRallyExpanded") private var isRallyExpanded: Bool = true
     @AppStorage("legendOutcomesExpanded") private var isOutcomesExpanded: Bool = true
     @AppStorage("legendGameRulesExpanded") private var isGameRulesExpanded: Bool = true
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
     
     private let topOffset: CGFloat = -40
     
@@ -43,7 +48,7 @@ struct LegendView: View {
                                     .foregroundColor(.primary)
                                     .frame(width: 40)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(serveType.displayName)
+                                    Text(serveType.displayName(for: selectedLanguage))
                                         .font(.headline)
                                 }
                                 Spacer()
@@ -72,7 +77,7 @@ struct LegendView: View {
                                     Text(receiveType.emoji)
                                         .font(.system(size: 32))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(receiveType.displayName) / \(receiveType.spinType)")
+                                        Text("\(receiveType.displayName(for: selectedLanguage)) / \(receiveType.spinType(for: selectedLanguage))")
                                             .font(.headline)
                                         Text(receiveType.fruitName)
                                             .font(.caption)
@@ -80,7 +85,7 @@ struct LegendView: View {
                                     }
                                     Spacer()
                                 }
-                                Text(receiveType.whyItWorks)
+                                Text(receiveType.whyItWorks(for: selectedLanguage))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .padding(.leading, 48)
@@ -109,7 +114,7 @@ struct LegendView: View {
                                     Text(rallyType.emoji)
                                         .font(.system(size: 32))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(rallyType.displayName) / \(rallyType.spinType)")
+                                        Text("\(rallyType.displayName(for: selectedLanguage)) / \(rallyType.spinType(for: selectedLanguage))")
                                             .font(.headline)
                                         Text(rallyType.animalName)
                                             .font(.caption)
@@ -117,7 +122,7 @@ struct LegendView: View {
                                     }
                                     Spacer()
                                 }
-                                Text(rallyType.whyItWorks)
+                                Text(rallyType.whyItWorks(for: selectedLanguage))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .padding(.leading, 48)
@@ -144,7 +149,7 @@ struct LegendView: View {
                                 Text(outcome.emoji)
                                     .font(.system(size: 32))
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(outcome.displayName)
+                                    Text(outcome.displayName(for: selectedLanguage))
                                         .font(.headline)
                                 }
                                 Spacer()
@@ -208,6 +213,24 @@ struct LegendView: View {
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Picker("Language", selection: $selectedLanguageRaw) {
+                            ForEach(Language.allCases, id: \.rawValue) { language in
+                                HStack {
+                                    Text(language.flag)
+                                    Text(language.displayName)
+                                }
+                                .tag(language.rawValue)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(selectedLanguage.flag)
+                                .font(.title3)
+                        }
                     }
                 }
             }

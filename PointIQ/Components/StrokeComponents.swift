@@ -7,6 +7,14 @@
 
 import SwiftUI
 
+// MARK: - Scroll Position Preference Key
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - View Modifiers
 
 extension View {
@@ -65,6 +73,10 @@ struct StrokeSequenceView: View {
     let receiveEmoji: String?
     let rallyEmojis: [String]
     var onRallyTap: ((Int) -> Void)? = nil // Callback when rally emoji is tapped (index parameter)
+    var reverseOrder: Bool = false // If true, display sequence from right to left
+    var opponentServed: Bool = false // If true, opponent started the sequence with a serve
+    
+    // MARK: - Initialization Helpers
     
     private static func extractServeInfo(from serve: ServeType?) -> (shortName: String?, emoji: String?) {
         guard let serve = serve else { return (nil, nil) }
@@ -72,113 +84,299 @@ struct StrokeSequenceView: View {
         return (serve.shortName, emoji)
     }
     
-    init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType], onRallyTap: ((Int) -> Void)? = nil) {
+    private static func extractServeInfo(from serveTypeString: String?) -> (shortName: String?, emoji: String?) {
+        guard let serveTypeString = serveTypeString,
+              let serveType = ServeType(rawValue: serveTypeString) else {
+            return (nil, nil)
+        }
+        return extractServeInfo(from: serveType)
+    }
+    
+    private static func extractReceiveEmoji(receiveTypeString: String?, hasFruitToken: Bool) -> String? {
+        if let receiveTypeString = receiveTypeString,
+           let receiveType = ReceiveType(rawValue: receiveTypeString) {
+            return receiveType.emoji
+        }
+        return hasFruitToken ? StrokeToken.fruit.emoji : nil
+    }
+    
+    private static func extractRallyEmojis(rallyTypes: [String], animalTokenCount: Int) -> [String] {
+        if !rallyTypes.isEmpty {
+            return rallyTypes.compactMap { RallyType(rawValue: $0)?.emoji }
+        }
+        return Array(repeating: StrokeToken.animal.emoji, count: animalTokenCount)
+    }
+    
+    // MARK: - Initializers
+    
+    init(serve: ServeType?, receive: ReceiveType?, rallies: [RallyType], onRallyTap: ((Int) -> Void)? = nil, reverseOrder: Bool = false, opponentServed: Bool = false) {
         let serveInfo = Self.extractServeInfo(from: serve)
         self.serveShortName = serveInfo.shortName
         self.serveEmoji = serveInfo.emoji
         self.receiveEmoji = receive?.emoji
         self.rallyEmojis = rallies.map { $0.emoji }
         self.onRallyTap = onRallyTap
+        self.reverseOrder = reverseOrder
+        self.opponentServed = opponentServed
     }
     
-    init(point: Point) {
-        // Extract serve info
-        if let serveTypeString = point.serveType,
-           let serveType = ServeType(rawValue: serveTypeString) {
-            let serveInfo = Self.extractServeInfo(from: serveType)
-            self.serveShortName = serveInfo.shortName
-            self.serveEmoji = serveInfo.emoji
-        } else {
-            self.serveShortName = nil
-            self.serveEmoji = nil
+    init(point: Point, reverseOrder: Bool = false, opponentServed: Bool = false) {
+        let serveInfo = Self.extractServeInfo(from: point.serveType)
+        self.serveShortName = serveInfo.shortName
+        self.serveEmoji = serveInfo.emoji
+        self.receiveEmoji = Self.extractReceiveEmoji(
+            receiveTypeString: point.receiveType,
+            hasFruitToken: point.strokeTokens.contains(.fruit)
+        )
+        self.rallyEmojis = Self.extractRallyEmojis(
+            rallyTypes: point.rallyTypes,
+            animalTokenCount: point.strokeTokens.filter { $0 == .animal }.count
+        )
+        self.onRallyTap = nil
+        self.reverseOrder = reverseOrder
+        self.opponentServed = opponentServed
+    }
+    
+    init(pointData: PointData, reverseOrder: Bool = false, opponentServed: Bool = false) {
+        let serveInfo = Self.extractServeInfo(from: pointData.serveType)
+        self.serveShortName = serveInfo.shortName
+        self.serveEmoji = serveInfo.emoji
+        let strokeTokens = pointData.strokeTokenValues
+        self.receiveEmoji = Self.extractReceiveEmoji(
+            receiveTypeString: pointData.receiveType,
+            hasFruitToken: strokeTokens.contains(.fruit)
+        )
+        self.rallyEmojis = Self.extractRallyEmojis(
+            rallyTypes: pointData.rallyTypes,
+            animalTokenCount: strokeTokens.filter { $0 == .animal }.count
+        )
+        self.onRallyTap = nil
+        self.reverseOrder = reverseOrder
+        self.opponentServed = opponentServed
+    }
+    
+    // MARK: - Constants
+    
+    /// Maximum emojis to display before using rolling window
+    private let maxDisplayEmojis = 10
+    
+    /// Minimum spacer length for reverse order scroll view
+    private let reverseOrderSpacerLength: CGFloat = 200
+    
+    /// Delay before scrolling to position (allows layout to complete)
+    private let scrollPositionDelay: TimeInterval = 0.2
+    
+    /// Threshold for determining if first item is visible (in points)
+    private let firstItemVisibilityThreshold: CGFloat = 20
+    
+    // MARK: - Computed Properties
+    
+    /// Calculate total emoji count (serve + receive + rallies)
+    private var totalEmojiCount: Int {
+        var count = 0
+        if serveShortName != nil || serveEmoji != nil { count += 1 }
+        if receiveEmoji != nil { count += 1 }
+        count += rallyEmojis.count
+        return count
+    }
+    
+    /// Get full sequence (all emojis) - always in normal order: serve, receive, rallies
+    private var fullSequence: [(emoji: String, originalRallyIndex: Int?, type: EmojiType)] {
+        var sequence: [(emoji: String, originalRallyIndex: Int?, type: EmojiType)] = []
+        
+        // Build full sequence - always in serve, receive, rallies order
+        if serveShortName != nil || serveEmoji != nil {
+            sequence.append((serveEmoji ?? "", nil, .serve))
+        }
+        if let receiveEmoji = receiveEmoji {
+            sequence.append((receiveEmoji, nil, .receive))
+        }
+        for (index, emoji) in rallyEmojis.enumerated() {
+            sequence.append((emoji, index, .rally))
         }
         
-        // Extract receive info - use actual type if available, otherwise fall back to generic fruit emoji
-        if let receiveTypeString = point.receiveType,
-           let receiveType = ReceiveType(rawValue: receiveTypeString) {
-            self.receiveEmoji = receiveType.emoji
-        } else {
-            // Fall back to generic fruit emoji for older points without receive type data
-            self.receiveEmoji = point.strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
+        return sequence
+    }
+    
+    /// Get the visible window start index for rolling window display
+    private var visibleWindowStartIndex: Int {
+        let fullCount = fullSequence.count
+        if fullCount > maxDisplayEmojis {
+            return fullCount - maxDisplayEmojis
         }
-        
-        // Extract rally info - use actual types if available, otherwise fall back to generic animal emoji
-        if !point.rallyTypes.isEmpty {
-            self.rallyEmojis = point.rallyTypes.compactMap { rallyTypeString in
-                RallyType(rawValue: rallyTypeString)?.emoji
-            }
+        return 0
+    }
+    
+    /// Get the scroll target index for initial positioning
+    private var scrollTargetIndex: Int {
+        visibleWindowStartIndex
+    }
+    
+    /// Indices to iterate - reversed when reverseOrder is true
+    private var displayIndices: [Int] {
+        reverseOrder ? fullSequence.indices.reversed() : Array(fullSequence.indices)
+    }
+    
+    // MARK: - State
+    
+    @State private var isFirstItemVisible: Bool = false
+    
+    // MARK: - Supporting Types
+    
+    private enum EmojiType {
+        case serve, receive, rally
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Checks if an index is the first item in display order
+    /// - When reversed: first displayed item is the last in sequence (serve)
+    /// - When not reversed: first displayed item is the first in sequence (serve)
+    private func isFirstItem(_ index: Int) -> Bool {
+        if reverseOrder {
+            // When reversed, first item displayed is the last in sequence
+            return index == fullSequence.count - 1
         } else {
-            // Fall back to generic animal emoji for older points without rally type data
-            let animalTokens = point.strokeTokens.filter { $0 == .animal }
-            self.rallyEmojis = Array(repeating: StrokeToken.animal.emoji, count: animalTokens.count)
+            // When not reversed, first item is index 0
+            return index == 0
         }
     }
     
-    init(pointData: PointData) {
-        // Extract serve info
-        if let serveTypeString = pointData.serveType,
-           let serveType = ServeType(rawValue: serveTypeString) {
-            let serveInfo = Self.extractServeInfo(from: serveType)
-            self.serveShortName = serveInfo.shortName
-            self.serveEmoji = serveInfo.emoji
-        } else {
-            self.serveShortName = nil
-            self.serveEmoji = nil
-        }
-        
-        // Extract receive info - use actual type if available, otherwise fall back to generic fruit emoji
-        if let receiveTypeString = pointData.receiveType,
-           let receiveType = ReceiveType(rawValue: receiveTypeString) {
-            self.receiveEmoji = receiveType.emoji
-        } else {
-            // Fall back to generic fruit emoji for older points without receive type data
-            let strokeTokens = pointData.strokeTokenValues
-            self.receiveEmoji = strokeTokens.contains(.fruit) ? StrokeToken.fruit.emoji : nil
-        }
-        
-        // Extract rally info - use actual types if available, otherwise fall back to generic animal emoji
-        if !pointData.rallyTypes.isEmpty {
-            self.rallyEmojis = pointData.rallyTypes.compactMap { rallyTypeString in
-                RallyType(rawValue: rallyTypeString)?.emoji
+    /// Creates an emoji view for a sequence item
+    @ViewBuilder
+    private func emojiView(for item: (emoji: String, originalRallyIndex: Int?, type: EmojiType), at index: Int) -> some View {
+        HStack(spacing: 4) {
+            // Show "Opp" tag for serve type when opponent served
+            if item.type == .serve && opponentServed {
+                Text("Opp")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.15))
+                    .cornerRadius(4)
             }
-        } else {
-            // Fall back to generic animal emoji for older points without rally type data
-            let strokeTokens = pointData.strokeTokenValues
-            let animalTokens = strokeTokens.filter { $0 == .animal }
-            self.rallyEmojis = Array(repeating: StrokeToken.animal.emoji, count: animalTokens.count)
+            
+            // Show serve shortName for serve type
+            if item.type == .serve, let serveShortName = serveShortName {
+                Text(serveShortName)
+                    .font(.system(size: 14, weight: .bold))
+            }
+            
+            // Show the emoji (only if not empty)
+            if !item.emoji.isEmpty {
+                Text(item.emoji)
+                    .font(.system(size: 18))
+                    .onTapGesture {
+                        // Only handle tap for rally emojis
+                        if let rallyIndex = item.originalRallyIndex {
+                            onRallyTap?(rallyIndex)
+                        }
+                    }
+            }
         }
+        .id("item-\(index)")
+        .background(visibilityTracker(for: index))
+    }
+    
+    /// Creates a visibility tracker for the first item
+    @ViewBuilder
+    private func visibilityTracker(for index: Int) -> some View {
+        if isFirstItem(index) {
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).minX
+                    )
+            }
+        }
+    }
+    
+    // MARK: - Scroll Positioning
+    
+    /// Scrolls to the appropriate position based on reverse order
+    private func scrollToPosition(proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + scrollPositionDelay) {
+            withAnimation {
+                if reverseOrder {
+                    scrollToReverseOrderPosition(proxy: proxy)
+                } else {
+                    scrollToNormalOrderPosition(proxy: proxy)
+                }
+            }
+        }
+    }
+    
+    /// Scrolls to position when in reverse order (right-to-left display)
+    private func scrollToReverseOrderPosition(proxy: ScrollViewProxy) {
+        guard !fullSequence.isEmpty else { return }
+        
+        // When reversed, display order (left to right): rallies..., receive, serve
+        // We want serve and receive visible on the right
+        let serveIndex = fullSequence.count - 1
+        proxy.scrollTo("item-\(serveIndex)", anchor: .trailing)
+    }
+    
+    /// Scrolls to position when in normal order (left-to-right display)
+    private func scrollToNormalOrderPosition(proxy: ScrollViewProxy) {
+        // When not reversed, scroll to show rolling window from left
+        guard totalEmojiCount > maxDisplayEmojis && visibleWindowStartIndex > 0 else { return }
+        proxy.scrollTo("item-\(scrollTargetIndex)", anchor: .leading)
     }
     
     var body: some View {
-        HStack(spacing: 6) {
-            // Serve: shortName + emoji
-            if let serveShortName = serveShortName {
-                Text(serveShortName)
-                    .font(.system(size: 14, weight: .bold))
-                if let serveEmoji = serveEmoji {
-                    Text(serveEmoji)
-                        .font(.system(size: 18))
+        ScrollViewReader { proxy in
+            scrollContent
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    isFirstItemVisible = value <= firstItemVisibilityThreshold
+                }
+                .onAppear {
+                    scrollToPosition(proxy: proxy)
+                }
+                .onChange(of: totalEmojiCount) { _, _ in
+                    scrollToPosition(proxy: proxy)
+                }
+                .onChange(of: reverseOrder) { _, _ in
+                    scrollToPosition(proxy: proxy)
+                }
+        }
+    }
+    
+    private var scrollContent: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                if reverseOrder {
+                    // Right-to-left: Display order: [rallies...] [receive] [serve] (right to left)
+                    // Spacer at end makes scroll view wider, allowing us to scroll to show rightmost items
+                    emojiSequenceView
+                    ellipsisView
+                    Spacer(minLength: reverseOrderSpacerLength)
+                } else {
+                    // Left-to-right: normal order
+                    ellipsisView
+                    emojiSequenceView
                 }
             }
-            
-            // Receive: emoji
-            if let receiveEmoji = receiveEmoji {
-                Text(receiveEmoji)
-                    .font(.system(size: 18))
-            }
-            
-            // Rally: emojis (tappable to undo)
-            if !rallyEmojis.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(rallyEmojis.indices, id: \.self) { index in
-                        Text(rallyEmojis[index])
-                            .font(.system(size: 18))
-                            .onTapGesture {
-                                onRallyTap?(index)
-                            }
-                    }
-                }
-            }
+            .frame(minWidth: 0)
+        }
+    }
+    
+    @ViewBuilder
+    private var ellipsisView: some View {
+        if totalEmojiCount > maxDisplayEmojis && visibleWindowStartIndex > 0 && !isFirstItemVisible {
+            Text("…")
+                .font(.system(size: 18))
+                .foregroundColor(.secondary)
+                .id("ellipsis")
+        }
+    }
+    
+    private var emojiSequenceView: some View {
+        ForEach(displayIndices, id: \.self) { index in
+            let item = fullSequence[index]
+            emojiView(for: item, at: index)
         }
     }
 }
