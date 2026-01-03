@@ -115,7 +115,10 @@ class SupabaseService {
         matchId: String? = nil,
         gameId: String? = nil
     ) -> PointInsert {
-        PointInsert(
+        // Derive point_winner, contact_made, and luck_factor from outcome
+        let (pointWinner, contactMade, luckFactor) = derivePointFields(from: pointData.outcome)
+        
+        return PointInsert(
             id: pointData.id,
             timestamp: pointData.timestamp.ISO8601Format(),
             strokeTokens: pointData.strokeTokens,
@@ -124,10 +127,34 @@ class SupabaseService {
             receiveType: pointData.receiveType,
             rallyTypes: pointData.rallyTypes,
             gameNumber: pointData.gameNumber,
+            pointWinner: pointWinner,
+            contactMade: contactMade,
+            luckFactor: luckFactor,
             createdAt: Self.currentTimestamp,
             matchId: matchId,
             gameId: gameId
         )
+    }
+    
+    /// Derives point_winner, contact_made, and luck_factor from outcome
+    private func derivePointFields(from outcome: String) -> (pointWinner: String, contactMade: Bool, luckFactor: String?) {
+        switch outcome {
+        case "my_winner", "opponent_error":
+            // Point won by player
+            return ("me", true, "none")
+        case "i_missed":
+            // Didn't touch the ball
+            return ("opponent", false, "none")
+        case "my_error":
+            // Touched ball but didn't land it
+            return ("opponent", true, "none")
+        case "unlucky":
+            // Edge or net ball
+            return ("opponent", true, "net or edge")
+        default:
+            // Fallback (shouldn't happen with valid outcomes)
+            return ("opponent", true, "none")
+        }
     }
     
     /// Creates a PlayerProfileInsert from profile data
@@ -139,7 +166,7 @@ class SupabaseService {
         blade: String,
         forehandRubber: String,
         backhandRubber: String,
-        eloRating: String,
+        eloRating: Int?,
         clubName: String
     ) -> PlayerProfileInsert {
         PlayerProfileInsert(
@@ -158,6 +185,7 @@ class SupabaseService {
     }
     
     /// Generic method to save/update a profile
+    /// Uses check-then-insert/update approach to avoid issues with deferrable constraints
     private func saveProfile(
         profileType: String,
         name: String,
@@ -166,7 +194,7 @@ class SupabaseService {
         blade: String,
         forehandRubber: String,
         backhandRubber: String,
-        eloRating: String,
+        eloRating: Int?,
         clubName: String,
         onConflict: String,
         returnId: Bool = false
@@ -184,26 +212,78 @@ class SupabaseService {
             clubName: clubName
         )
         
-        if returnId {
-            let response: [PlayerProfileRow] = try await client.from(Table.playerProfiles)
-                .upsert(profileInsert, onConflict: onConflict)
+        // Check if profile exists first (to avoid deferrable constraint issues)
+        var existingProfile: PlayerProfileRow?
+        
+        if onConflict == "user_id,profile_type" {
+            // For player profiles: check by user_id and profile_type
+            let profiles: [PlayerProfileRow] = try await client.from(Table.playerProfiles)
                 .select()
+                .is("user_id", value: nil)
+                .eq("profile_type", value: profileType)
+                .is("deleted_at", value: nil)
+                .limit(1)
                 .execute()
                 .value
-            
-            guard let profile = response.first else {
-                throw SupabaseError.decodingError(NSError(
-                    domain: "SupabaseService",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Failed to get created profile ID"]
-                ))
-            }
-            return profile.id
-        } else {
-            try await client.from(Table.playerProfiles)
-                .upsert(profileInsert, onConflict: onConflict)
+            existingProfile = profiles.first
+        } else if onConflict == "user_id,profile_type,name" {
+            // For opponent profiles: check by user_id, profile_type, and name
+            let profiles: [PlayerProfileRow] = try await client.from(Table.playerProfiles)
+                .select()
+                .is("user_id", value: nil)
+                .eq("profile_type", value: profileType)
+                .eq("name", value: name)
+                .is("deleted_at", value: nil)
+                .limit(1)
                 .execute()
+                .value
+            existingProfile = profiles.first
+        }
+        
+        if let existing = existingProfile {
+            // Update existing profile
+            let profileUpdate = PlayerProfileUpdate(
+                grip: grip,
+                handedness: handedness,
+                blade: blade,
+                forehandRubber: forehandRubber,
+                backhandRubber: backhandRubber,
+                eloRating: eloRating,
+                clubName: clubName
+            )
+            
+            try await client.from(Table.playerProfiles)
+                .update(profileUpdate)
+                .eq("id", value: existing.id)
+                .execute()
+            
+            if returnId {
+                return existing.id
+            }
             return nil
+        } else {
+            // Insert new profile
+            if returnId {
+                let response: [PlayerProfileRow] = try await client.from(Table.playerProfiles)
+                    .insert(profileInsert)
+                    .select()
+                    .execute()
+                    .value
+                
+                guard let profile = response.first else {
+                    throw SupabaseError.decodingError(NSError(
+                        domain: "SupabaseService",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to get created profile ID"]
+                    ))
+                }
+                return profile.id
+            } else {
+                try await client.from(Table.playerProfiles)
+                    .insert(profileInsert)
+                    .execute()
+                return nil
+            }
         }
     }
     
@@ -251,22 +331,49 @@ class SupabaseService {
         matchID: String,
         client: SupabaseClient
     ) async throws -> Int {
-        guard let points = game.points else { return 0 }
+        // Access points relationship - SwiftData may need to load it
+        let points = game.points ?? []
+        
+        print("📊 Game \(game.gameNumber): Found \(points.count) points to upload")
+        
+        if points.isEmpty {
+            print("⚠️ Game \(game.gameNumber): No points found (points relationship: \(game.points != nil ? "loaded" : "nil"))")
+            return 0
+        }
         
         var count = 0
-        for point in points {
-            let pointData = PointData(from: point, gameNumber: game.gameNumber)
-            let pointInsert = pointInsert(
-                from: pointData,
-                matchId: matchID,
-                gameId: game.id.uuidString
-            )
-            
-            try await client.from(Table.points)
-                .insert(pointInsert)
-                .execute()
-            count += 1
+        var errorCount = 0
+        
+        for (index, point) in points.enumerated() {
+            do {
+                let pointData = PointData(from: point, gameNumber: game.gameNumber)
+                let pointInsert = pointInsert(
+                    from: pointData,
+                    matchId: matchID,
+                    gameId: game.id.uuidString
+                )
+                
+                try await client.from(Table.points)
+                    .insert(pointInsert)
+                    .execute()
+                
+                count += 1
+                if (index + 1) % 10 == 0 {
+                    print("   ✅ Uploaded \(index + 1)/\(points.count) points for game \(game.gameNumber)")
+                }
+            } catch {
+                errorCount += 1
+                print("❌ Error uploading point \(index + 1) for game \(game.gameNumber): \(error.localizedDescription)")
+                // Continue with next point instead of failing completely
+            }
         }
+        
+        if errorCount > 0 {
+            print("⚠️ Game \(game.gameNumber): \(errorCount) points failed to upload out of \(points.count)")
+        } else {
+            print("✅ Game \(game.gameNumber): Successfully uploaded all \(count) points")
+        }
+        
         return count
     }
     #endif
@@ -385,12 +492,55 @@ class SupabaseService {
         var totalGamesUploaded = 0
         var totalPointsUploaded = 0
         
+        print("📊 Starting upload for \(games.count) games")
+        
+        // Also check match.points as an alternative source
+        let matchPointsCount = match.points?.count ?? 0
+        print("📊 Match has \(matchPointsCount) total points (via match.points relationship)")
+        
         for game in games {
+            print("🔄 Uploading game \(game.gameNumber)...")
             try await uploadGame(game, matchID: matchID)
             totalGamesUploaded += 1
             
             // Upload points for this game
-            totalPointsUploaded += try await uploadPoints(for: game, matchID: matchID, client: client)
+            // Note: Access points property to ensure SwiftData loads the relationship
+            let pointsCount = game.points?.count ?? 0
+            print("   📍 Game \(game.gameNumber) has \(pointsCount) points in relationship")
+            
+            // If game.points is empty but match has points, try to filter match points by game
+            if pointsCount == 0 && matchPointsCount > 0 {
+                print("   ⚠️ Game \(game.gameNumber) has no points in relationship, checking match.points...")
+                if let matchPoints = match.points {
+                    let gamePoints = matchPoints.filter { point in
+                        // Try to match points to this game by checking if point.game matches
+                        point.game?.id == game.id
+                    }
+                    print("   📍 Found \(gamePoints.count) points for game \(game.gameNumber) via match.points")
+                    
+                    // Upload these points
+                    for point in gamePoints {
+                        do {
+                            let pointData = PointData(from: point, gameNumber: game.gameNumber)
+                            let pointInsert = pointInsert(
+                                from: pointData,
+                                matchId: matchID,
+                                gameId: game.id.uuidString
+                            )
+                            
+                            try await client.from(Table.points)
+                                .insert(pointInsert)
+                                .execute()
+                            
+                            totalPointsUploaded += 1
+                        } catch {
+                            print("❌ Error uploading point: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            } else {
+                totalPointsUploaded += try await uploadPoints(for: game, matchID: matchID, client: client)
+            }
         }
         
         print("✅ Match upload complete: \(matchID)")
@@ -435,7 +585,7 @@ class SupabaseService {
         blade: String = "",
         forehandRubber: String = "",
         backhandRubber: String = "",
-        eloRating: String = "",
+        eloRating: Int? = nil,
         clubName: String = ""
     ) async throws {
         #if canImport(Supabase)
@@ -466,7 +616,7 @@ class SupabaseService {
         blade: String = "",
         forehandRubber: String = "",
         backhandRubber: String = "",
-        eloRating: String = "",
+        eloRating: Int? = nil,
         clubName: String = ""
     ) async throws -> String {
         #if canImport(Supabase)
@@ -555,6 +705,9 @@ private struct PointInsert: Encodable {
     let receiveType: String?
     let rallyTypes: [String]
     let gameNumber: Int?
+    let pointWinner: String
+    let contactMade: Bool
+    let luckFactor: String?
     let createdAt: String
     let matchId: String?
     let gameId: String?
@@ -568,6 +721,9 @@ private struct PointInsert: Encodable {
         case receiveType = "receive_type"
         case rallyTypes = "rally_types"
         case gameNumber = "game_number"
+        case pointWinner = "point_winner"
+        case contactMade = "contact_made"
+        case luckFactor = "luck_factor"
         case createdAt = "created_at"
         case matchId = "match_id"
         case gameId = "game_id"
@@ -626,6 +782,9 @@ private struct PointRow: Codable {
     let receiveType: String?
     let rallyTypes: [String]
     let gameNumber: Int?
+    let pointWinner: String?
+    let contactMade: Bool?
+    let luckFactor: String?
     let matchId: String?
     let createdAt: String?
     
@@ -638,6 +797,9 @@ private struct PointRow: Codable {
         case receiveType = "receive_type"
         case rallyTypes = "rally_types"
         case gameNumber = "game_number"
+        case pointWinner = "point_winner"
+        case contactMade = "contact_made"
+        case luckFactor = "luck_factor"
         case matchId = "match_id"
         case createdAt = "created_at"
     }
@@ -652,7 +814,7 @@ private struct PlayerProfileInsert: Encodable {
     let blade: String
     let forehandRubber: String
     let backhandRubber: String
-    let eloRating: String
+    let eloRating: Int?
     let clubName: String
     let createdAt: String
     
@@ -671,6 +833,26 @@ private struct PlayerProfileInsert: Encodable {
     }
 }
 
+private struct PlayerProfileUpdate: Encodable {
+    let grip: String
+    let handedness: String
+    let blade: String
+    let forehandRubber: String
+    let backhandRubber: String
+    let eloRating: Int?
+    let clubName: String
+    
+    enum CodingKeys: String, CodingKey {
+        case grip
+        case handedness
+        case blade
+        case forehandRubber = "forehand_rubber"
+        case backhandRubber = "backhand_rubber"
+        case eloRating = "elo_rating"
+        case clubName = "club_name"
+    }
+}
+
 private struct PlayerProfileRow: Codable {
     let id: String
     let userId: String?
@@ -681,7 +863,7 @@ private struct PlayerProfileRow: Codable {
     let blade: String
     let forehandRubber: String
     let backhandRubber: String
-    let eloRating: String
+    let eloRating: Int?
     let clubName: String
     let createdAt: String
     let updatedAt: String?

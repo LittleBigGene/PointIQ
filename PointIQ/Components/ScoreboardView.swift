@@ -336,6 +336,7 @@ struct ScoreboardView: View {
                             try? modelContext.save()
                         }
                     )) {
+                        Text("1").tag(1)
                         Text("3").tag(3)
                         Text("5").tag(5)
                         Text("7").tag(7)

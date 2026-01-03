@@ -12,8 +12,15 @@ struct Rules {
     
     // MARK: - Game Rules
     
-    /// Standard points required to win a game
-    static let pointsToWinGame = 11
+    /// Standard points required to win a game (editable via UserDefaults)
+    static var pointsToWinGame: Int {
+        get {
+            UserDefaults.standard.object(forKey: "pointsToWinGame") as? Int ?? 11
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "pointsToWinGame")
+        }
+    }
     
     /// Minimum lead required to win (must win by 2 points)
     static let minimumLeadToWin = 2
@@ -26,8 +33,10 @@ struct Rules {
     /// Serve alternates every 2 points
     static let serveRotationPoints = 2
     
-    /// At deuce (10-10), serve alternates every point
-    static let deuceThreshold = 10
+    /// At deuce (pointsToWinGame-1 vs pointsToWinGame-1), serve alternates every point
+    static var deuceThreshold: Int {
+        pointsToWinGame - 1
+    }
     
     // MARK: - Game Completion Logic
     

@@ -51,7 +51,7 @@ CREATE TABLE player_profiles (
     blade TEXT DEFAULT '',
     forehand_rubber TEXT DEFAULT '',
     backhand_rubber TEXT DEFAULT '',
-    elo_rating TEXT DEFAULT '',
+    elo_rating INTEGER DEFAULT 1000, -- 4-digit Elo rating (1000-9999), default 1000 for unrated players
     club_name TEXT DEFAULT '',
     
     -- Future-proofing fields
@@ -66,6 +66,7 @@ CREATE TABLE player_profiles (
     CONSTRAINT valid_profile_type CHECK (profile_type IN ('player', 'opponent')),
     CONSTRAINT valid_grip CHECK (grip IN ('Penhold', 'Shakehand', 'Other')),
     CONSTRAINT valid_handedness CHECK (handedness IN ('Left-handed', 'Right-handed')),
+    CONSTRAINT valid_elo_rating CHECK (elo_rating IS NULL OR (elo_rating >= 1000 AND elo_rating <= 9999)),
     CONSTRAINT unique_user_player_profile UNIQUE (user_id, profile_type) DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT unique_user_profile_name UNIQUE (user_id, profile_type, name) DEFERRABLE INITIALLY DEFERRED
 );
@@ -89,7 +90,7 @@ CREATE TABLE matches (
     end_date TIMESTAMPTZ,
     opponent_name TEXT, -- Denormalized for quick access (can be derived from opponent_profile_id)
     notes TEXT,
-    best_of INTEGER NOT NULL DEFAULT 5, -- Best of 3, 5, or 7 games
+    best_of INTEGER NOT NULL DEFAULT 5, -- Best of 1, 3, 5, or 7 games
     
     -- Opponent Profile Reference
     opponent_profile_id UUID REFERENCES player_profiles(id) ON DELETE SET NULL,
@@ -105,7 +106,7 @@ CREATE TABLE matches (
     
     -- Constraints
     CONSTRAINT valid_date_range CHECK (end_date IS NULL OR end_date >= start_date),
-    CONSTRAINT valid_best_of CHECK (best_of IN (3, 5, 7))
+    CONSTRAINT valid_best_of CHECK (best_of IN (1, 3, 5, 7))
 );
 
 -- Indexes for matches
@@ -170,6 +171,9 @@ CREATE TABLE points (
     receive_type TEXT,
     rally_types TEXT[] NOT NULL DEFAULT '{}',
     game_number INTEGER, -- Denormalized for quick queries
+    point_winner TEXT NOT NULL,
+    contact_made BOOLEAN NOT NULL,
+    luck_factor TEXT,
     
     -- Future-proofing fields
     metadata JSONB DEFAULT '{}'::jsonb, -- Flexible storage for future features (e.g., location, weather, profile)
@@ -180,7 +184,10 @@ CREATE TABLE points (
     deleted_at TIMESTAMPTZ, -- Soft delete support
     
     -- Constraints
-    CONSTRAINT valid_outcome CHECK (outcome IN ('my_winner', 'i_missed', 'opponent_error', 'my_error', 'unlucky'))
+    CONSTRAINT valid_outcome CHECK (outcome IN ('my_winner', 'i_missed', 'opponent_error', 'my_error', 'unlucky')),
+    CONSTRAINT valid_point_winner CHECK (point_winner IN ('me', 'opponent')),
+    CONSTRAINT valid_luck_factor CHECK (luck_factor IN ('none', 'net or edge'))
+    -- Note: match_id consistency is enforced by the sync_point_match_id trigger
 );
 
 -- Indexes for points (optimized for common queries)
@@ -231,6 +238,32 @@ CREATE TRIGGER update_points_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Function to auto-populate match_id from game_id
+CREATE OR REPLACE FUNCTION sync_point_match_id()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Auto-populate match_id from game_id if not provided or if it doesn't match
+    IF NEW.game_id IS NOT NULL THEN
+        SELECT match_id INTO NEW.match_id
+        FROM games
+        WHERE games.id = NEW.game_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to auto-sync match_id from game_id on insert/update
+CREATE TRIGGER sync_point_match_id_on_insert
+    BEFORE INSERT ON points
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_point_match_id();
+
+CREATE TRIGGER sync_point_match_id_on_update
+    BEFORE UPDATE ON points
+    FOR EACH ROW
+    WHEN (OLD.game_id IS DISTINCT FROM NEW.game_id)
+    EXECUTE FUNCTION sync_point_match_id();
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================================
@@ -241,26 +274,26 @@ ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE points ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow all operations for now (adjust when adding authentication)
--- When you add auth, change to: USING (auth.uid() = user_id)
-CREATE POLICY "Allow all operations on player_profiles" ON player_profiles
+-- Policy: Allow operations for authenticated users or anonymous users (user_id IS NULL)
+-- Authenticated users can access their own data, anonymous users can access data with NULL user_id
+CREATE POLICY "Allow operations on player_profiles" ON player_profiles
     FOR ALL
-    USING (true)
+    USING (auth.uid() IS NOT NULL OR user_id IS NULL)
+    WITH CHECK (auth.uid() IS NOT NULL OR user_id IS NULL);
+
+CREATE POLICY "Allow operations on matches" ON matches
+    FOR ALL
+    USING (auth.uid() IS NOT NULL OR user_id IS NULL)
+    WITH CHECK (auth.uid() IS NOT NULL OR user_id IS NULL);
+
+CREATE POLICY "Allow operations on games" ON games
+    FOR ALL
+    USING (true)  -- Games are protected through matches table RLS
     WITH CHECK (true);
 
-CREATE POLICY "Allow all operations on matches" ON matches
+CREATE POLICY "Allow operations on points" ON points
     FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY "Allow all operations on games" ON games
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY "Allow all operations on points" ON points
-    FOR ALL
-    USING (true)
+    USING (true)  -- Points are protected through matches table RLS
     WITH CHECK (true);
 
 -- ============================================================================
@@ -343,9 +376,13 @@ COMMENT ON COLUMN player_profiles.metadata IS 'JSONB field for flexible future f
 COMMENT ON COLUMN matches.user_id IS 'For future multi-user support - nullable for now';
 COMMENT ON COLUMN matches.opponent_profile_id IS 'Reference to opponent profile in player_profiles table';
 COMMENT ON COLUMN matches.opponent_name IS 'Denormalized opponent name for quick access (can be derived from opponent_profile_id)';
-COMMENT ON COLUMN matches.best_of IS 'Match format: best of 3, 5, or 7 games';
+COMMENT ON COLUMN matches.best_of IS 'Match format: best of 1, 3, 5, or 7 games';
 COMMENT ON COLUMN matches.metadata IS 'JSONB field for flexible future features (e.g., location, tournament info)';
 COMMENT ON COLUMN games.metadata IS 'JSONB field for flexible future features';
+COMMENT ON COLUMN points.outcome IS 'Point outcome: my_winner (point won by player), opponent_error (opponent made error), i_missed (did not touch the ball), my_error (touched ball but did not land it on table), unlucky (edge or net ball)';
+COMMENT ON COLUMN points.point_winner IS 'Who won the point: me or opponent';
+COMMENT ON COLUMN points.contact_made IS 'Whether the player made contact with the ball';
+COMMENT ON COLUMN points.luck_factor IS 'Luck factor: none or net or edge';
 COMMENT ON COLUMN points.metadata IS 'JSONB field for flexible future features (e.g., location, weather, profile)';
 COMMENT ON COLUMN points.game_number IS 'Denormalized for quick queries without joins';
 

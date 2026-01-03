@@ -31,7 +31,7 @@ struct ContentView: View {
     @AppStorage("playerBlade") private var playerBlade: String = ""
     @AppStorage("playerForehandRubber") private var playerForehandRubber: String = ""
     @AppStorage("playerBackhandRubber") private var playerBackhandRubber: String = ""
-    @AppStorage("playerEloRating") private var playerEloRating: String = ""
+    @AppStorage("playerEloRating") private var playerEloRating: Int = 1000 // Default for unrated players
     @AppStorage("playerClubName") private var playerClubName: String = ""
     
     @AppStorage("opponentName") private var opponentName: String = ""
@@ -40,7 +40,7 @@ struct ContentView: View {
     @AppStorage("opponentBlade") private var opponentBlade: String = ""
     @AppStorage("opponentForehandRubber") private var opponentForehandRubber: String = ""
     @AppStorage("opponentBackhandRubber") private var opponentBackhandRubber: String = ""
-    @AppStorage("opponentEloRating") private var opponentEloRating: String = ""
+    @AppStorage("opponentEloRating") private var opponentEloRating: Int = 1000 // Default for unrated players
     @AppStorage("opponentClubName") private var opponentClubName: String = ""
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     
@@ -481,7 +481,7 @@ struct ContentView: View {
                     blade: playerBlade,
                     forehandRubber: playerForehandRubber,
                     backhandRubber: playerBackhandRubber,
-                    eloRating: playerEloRating,
+                    eloRating: playerEloRating >= 1000 ? playerEloRating : nil,
                     clubName: playerClubName
                 )
                 
@@ -495,7 +495,7 @@ struct ContentView: View {
                         blade: opponentBlade,
                         forehandRubber: opponentForehandRubber,
                         backhandRubber: opponentBackhandRubber,
-                        eloRating: opponentEloRating,
+                        eloRating: opponentEloRating >= 1000 ? opponentEloRating : nil,
                         clubName: opponentClubName
                     )
                 }
@@ -558,7 +558,7 @@ struct ContentView: View {
         UserDefaults.standard.removeObject(forKey: "opponentBlade")
         UserDefaults.standard.removeObject(forKey: "opponentForehandRubber")
         UserDefaults.standard.removeObject(forKey: "opponentBackhandRubber")
-        UserDefaults.standard.removeObject(forKey: "opponentEloRating")
+        opponentEloRating = 1000 // Reset to default for unrated players
         UserDefaults.standard.removeObject(forKey: "opponentClubName")
     }
 }

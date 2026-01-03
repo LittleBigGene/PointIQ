@@ -14,6 +14,7 @@ struct LegendView: View {
     @AppStorage("legendOutcomesExpanded") private var isOutcomesExpanded: Bool = true
     @AppStorage("legendGameRulesExpanded") private var isGameRulesExpanded: Bool = true
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    @AppStorage("pointsToWinGame") private var pointsToWinGame: Int = 11
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
@@ -40,10 +41,11 @@ struct LegendView: View {
     }
     
     private func pointsToWinDescription(for language: Language) -> String {
+        // This is no longer used since we have an editable stepper, but keeping for consistency
         switch language {
-        case .english: return "\(Rules.pointsToWinGame) points"
-        case .japanese: return "\(Rules.pointsToWinGame)点"
-        case .chinese: return "\(Rules.pointsToWinGame)分"
+        case .english: return "\(pointsToWinGame) points"
+        case .japanese: return "\(pointsToWinGame)点"
+        case .chinese: return "\(pointsToWinGame)分"
         }
     }
     
@@ -72,10 +74,11 @@ struct LegendView: View {
     }
     
     private func deuceDescription(for language: Language) -> String {
+        let threshold = pointsToWinGame - 1
         switch language {
-        case .english: return "At 10-10, serve alternates every point"
-        case .japanese: return "10-10の時、サーブは毎ポイント交代"
-        case .chinese: return "10-10時，每分換發球"
+        case .english: return "At \(threshold)-\(threshold), serve alternates every point"
+        case .japanese: return "\(threshold)-\(threshold)の時、サーブは毎ポイント交代"
+        case .chinese: return "\(threshold)-\(threshold)時，每分換發球"
         }
     }
     
@@ -230,10 +233,24 @@ struct LegendView: View {
                     // Game Rules Section
                     DisclosureGroup(isExpanded: $isGameRulesExpanded) {
                         VStack(alignment: .leading, spacing: 8) {
-                            RuleRow(
-                                title: pointsToWinText(for: selectedLanguage),
-                                description: pointsToWinDescription(for: selectedLanguage)
-                            )
+                            // Editable Points to Win
+                            HStack {
+                                Text(pointsToWinText(for: selectedLanguage))
+                                    .font(.headline)
+                                Spacer()
+                                Stepper(value: $pointsToWinGame, in: 1...21) {
+                                    Text("\(pointsToWinGame)")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .frame(minWidth: 30)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .onChange(of: pointsToWinGame) { _, newValue in
+                                // Sync with Rules static property
+                                Rules.pointsToWinGame = newValue
+                            }
+                            
                             RuleRow(
                                 title: winBy2Text(for: selectedLanguage),
                                 description: winBy2Description(for: selectedLanguage)
@@ -262,6 +279,10 @@ struct LegendView: View {
                 .offset(y: topOffset)
             }
             .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                // Sync pointsToWinGame from Rules on appear (in case it was changed elsewhere)
+                pointsToWinGame = Rules.pointsToWinGame
+            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Button(action: {

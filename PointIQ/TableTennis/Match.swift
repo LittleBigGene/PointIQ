@@ -17,7 +17,7 @@ final class Match: Identifiable {
     @Relationship(deleteRule: .cascade, inverse: \Game.match) var games: [Game]?
     var opponentName: String?
     var notes: String?
-    var bestOf: Int // Best of 3, 5, or 7 games
+    var bestOf: Int // Best of 1, 3, 5, or 7 games
     
     init(
         id: UUID = UUID(),

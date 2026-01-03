@@ -30,7 +30,7 @@ struct ProfileView: View {
     @AppStorage("playerBlade") private var playerBlade: String = ""
     @AppStorage("playerForehandRubber") private var playerForehandRubber: String = ""
     @AppStorage("playerBackhandRubber") private var playerBackhandRubber: String = ""
-    @AppStorage("playerEloRating") private var playerEloRating: String = ""
+    @AppStorage("playerEloRating") private var playerEloRating: Int = 1000 // Default for unrated players
     @AppStorage("playerClubName") private var playerClubName: String = ""
     
     @AppStorage("opponentName") private var opponentName: String = ""
@@ -39,7 +39,7 @@ struct ProfileView: View {
     @AppStorage("opponentBlade") private var opponentBlade: String = ""
     @AppStorage("opponentForehandRubber") private var opponentForehandRubber: String = ""
     @AppStorage("opponentBackhandRubber") private var opponentBackhandRubber: String = ""
-    @AppStorage("opponentEloRating") private var opponentEloRating: String = ""
+    @AppStorage("opponentEloRating") private var opponentEloRating: Int = 1000 // Default for unrated players
     @AppStorage("opponentClubName") private var opponentClubName: String = ""
     
     @AppStorage("playerProfileExpanded") private var playerProfileExpanded: Bool = true
@@ -140,6 +140,8 @@ struct ProfileView: View {
     }
     
     private func shareProfile(to peerID: MCPeerID) {
+        // Convert Int to String for sharing (backward compatibility)
+        let eloRatingString = playerEloRating >= 1000 ? "\(playerEloRating)" : ""
         let profile = PlayerProfile(
             name: playerName,
             grip: playerGrip,
@@ -147,7 +149,7 @@ struct ProfileView: View {
             blade: playerBlade,
             forehandRubber: playerForehandRubber,
             backhandRubber: playerBackhandRubber,
-            eloRating: playerEloRating,
+            eloRating: eloRatingString,
             clubName: playerClubName
         )
         sharingService.sendProfile(profile, to: peerID)
@@ -162,7 +164,13 @@ struct ProfileView: View {
         opponentBlade = profile.blade
         opponentForehandRubber = profile.forehandRubber
         opponentBackhandRubber = profile.backhandRubber
-        opponentEloRating = profile.eloRating
+        // Convert String to Int for storage (parse 4-digit number, default to 1000 if invalid)
+        if !profile.eloRating.isEmpty,
+           let eloInt = Int(profile.eloRating), eloInt >= 1000 && eloInt <= 9999 {
+            opponentEloRating = eloInt
+        } else {
+            opponentEloRating = 1000 // Default for unrated players
+        }
         opponentClubName = profile.clubName
         
         sharingService.receivedProfile = nil
@@ -282,7 +290,7 @@ struct PlayerProfileSection: View {
     @Binding var playerBlade: String
     @Binding var playerForehandRubber: String
     @Binding var playerBackhandRubber: String
-    @Binding var playerEloRating: String
+    @Binding var playerEloRating: Int
     @Binding var playerClubName: String
     
     var body: some View {
@@ -347,10 +355,9 @@ struct PlayerProfileSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 12) {
-                    ProfileField(
+                    ProfileEloRatingField(
                         label: "Elo Rating",
-                        value: $playerEloRating,
-                        placeholder: "Enter Elo rating"
+                        value: $playerEloRating
                     )
                     
                     ProfileField(
@@ -372,7 +379,7 @@ struct OpponentProfileSection: View {
     @Binding var opponentBlade: String
     @Binding var opponentForehandRubber: String
     @Binding var opponentBackhandRubber: String
-    @Binding var opponentEloRating: String
+    @Binding var opponentEloRating: Int
     @Binding var opponentClubName: String
     
     var body: some View {
@@ -437,10 +444,9 @@ struct OpponentProfileSection: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 12) {
-                    ProfileField(
+                    ProfileEloRatingField(
                         label: "Elo Rating",
-                        value: $opponentEloRating,
-                        placeholder: "Enter Elo rating"
+                        value: $opponentEloRating
                     )
                     
                     ProfileField(
@@ -472,6 +478,67 @@ struct ProfileField: View {
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemBackground))
                 .cornerRadius(8)
+        }
+        .padding(10)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
+    }
+}
+
+struct ProfileEloRatingField: View {
+    let label: String
+    @Binding var value: Int // 1000-9999 (default 1000 for unrated players)
+    
+    @State private var textValue: String = ""
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            TextField("1000-9999", text: $textValue)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(8)
+                .focused($isFocused)
+                .onChange(of: textValue) { _, newValue in
+                    // Only allow digits, max 4 characters
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered.count <= 4 {
+                        textValue = filtered
+                        // Update binding if valid 4-digit number
+                        if let intValue = Int(filtered), intValue >= 1000 && intValue <= 9999 {
+                            value = intValue
+                        } else if filtered.isEmpty {
+                            value = 1000 // Default to 1000 if empty
+                        }
+                    } else {
+                        textValue = String(filtered.prefix(4))
+                    }
+                }
+                .onChange(of: value) { _, newValue in
+                    // Sync text when value changes externally
+                    if newValue >= 1000 && newValue <= 9999 {
+                        textValue = "\(newValue)"
+                    } else {
+                        value = 1000 // Ensure value is always valid
+                        textValue = "1000"
+                    }
+                }
+                .onAppear {
+                    // Initialize text from value, default to 1000 if invalid
+                    if value >= 1000 && value <= 9999 {
+                        textValue = "\(value)"
+                    } else {
+                        value = 1000
+                        textValue = "1000"
+                    }
+                }
         }
         .padding(10)
         .background(Color(.secondarySystemBackground))
