@@ -21,7 +21,7 @@ struct PointData: Codable, Identifiable {
     init(from point: Point, gameNumber: Int? = nil) {
         self.id = point.uniqueID
         self.timestamp = point.timestamp
-        self.strokeTokens = point.strokeTokens.map { $0.rawValue }
+        self.strokeTokens = point.strokeTokens // Already strings
         self.outcome = point.outcome.rawValue
         self.serveType = point.serveType
         self.receiveType = point.receiveType
@@ -51,8 +51,9 @@ struct PointData: Codable, Identifiable {
     }
     
     /// Convert back to a displayable format
-    var strokeTokenValues: [StrokeToken] {
-        strokeTokens.compactMap { StrokeToken(rawValue: $0) }
+    /// Note: strokeTokens now contains actual stroke type strings (SS, SL, DS, etc.) instead of generic tokens
+    var strokeTokenValues: [String] {
+        strokeTokens // Already strings, return as-is
     }
     
     var outcomeValue: Outcome? {

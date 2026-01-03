@@ -414,7 +414,7 @@ struct QuickLoggingView: View {
         // Double-tap serve: whoever is serving gets the point (ace serve)
         let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
         let point = Point(
-            strokeTokens: [.vegetable], // Only serve
+            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
             outcome: outcome,
             serveType: serve.rawValue
         )
@@ -425,7 +425,7 @@ struct QuickLoggingView: View {
     private func submitServeOnlyPoint(serve: ServeType, outcome: Outcome) {
         // Serve-only point: serve selected then outcome selected (records serve in history)
         let point = Point(
-            strokeTokens: [.vegetable], // Only serve
+            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
             outcome: outcome,
             serveType: serve.rawValue
         )
@@ -439,7 +439,7 @@ struct QuickLoggingView: View {
         // If opponent is receiving (player is serving): point goes to opponent (.iMissed)
         let outcome: Outcome = isPlayerServing ? .iMissed : .myWinner
         let point = Point(
-            strokeTokens: [.fruit], // Only receive
+            strokeTokens: [receive.fruitName], // Store fruit name (e.g., "Banana")
             outcome: outcome,
             serveType: nil,
             receiveType: receive.rawValue
@@ -461,9 +461,9 @@ struct QuickLoggingView: View {
     }
     
     private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
-        // Map serve to vegetable token, receive to fruit token, and rallies to animal tokens
-        var strokeTokens: [StrokeToken] = [.vegetable, .fruit] // Serve then receive
-        strokeTokens.append(contentsOf: Array(repeating: .animal, count: rallies.count)) // Add rally tokens
+        // Store stroke tokens: serve type (SS, SL, DS, etc.), fruit name (Banana, etc.), animal name (Dragon, etc.)
+        var strokeTokens: [String] = [serve.rawValue, receive.fruitName] // Serve then receive (fruit name)
+        strokeTokens.append(contentsOf: rallies.map { $0.animalName }) // Add rally animal names
         
         // Store original outcome - Game.swift handles scoring correctly
         let point = Point(

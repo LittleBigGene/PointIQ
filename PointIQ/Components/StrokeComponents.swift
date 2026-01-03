@@ -98,19 +98,42 @@ struct StrokeSequenceView: View {
         return extractServeInfo(from: serveType)
     }
     
-    private static func extractReceiveEmoji(receiveTypeString: String?, hasFruitToken: Bool) -> String? {
+    private static func extractReceiveEmoji(receiveTypeString: String?, strokeTokens: [String]) -> String? {
+        // First try to get from receiveType
         if let receiveTypeString = receiveTypeString,
            let receiveType = ReceiveType(rawValue: receiveTypeString) {
             return receiveType.emoji
         }
-        return hasFruitToken ? StrokeToken.fruit.emoji : nil
+        // Fallback: check if any stroke token is a fruit name (receive type)
+        for token in strokeTokens {
+            // Check if token matches a fruit name
+            if let receiveType = ReceiveType.allCases.first(where: { $0.fruitName == token }) {
+                return receiveType.emoji
+            }
+            // Also check rawValue for backward compatibility
+            if let receiveType = ReceiveType(rawValue: token) {
+                return receiveType.emoji
+            }
+        }
+        return nil
     }
     
-    private static func extractRallyEmojis(rallyTypes: [String], animalTokenCount: Int) -> [String] {
+    private static func extractRallyEmojis(rallyTypes: [String], strokeTokens: [String]) -> [String] {
+        // First try to get from rallyTypes array
         if !rallyTypes.isEmpty {
             return rallyTypes.compactMap { RallyType(rawValue: $0)?.emoji }
         }
-        return Array(repeating: StrokeToken.animal.emoji, count: animalTokenCount)
+        // Fallback: extract rally types from strokeTokens (after serve and receive)
+        // Serve and receive are typically the first two tokens, rest are rallies
+        let rallyTokens = strokeTokens.dropFirst(2) // Skip serve and receive
+        return rallyTokens.compactMap { token in
+            // Check if token matches an animal name
+            if let rallyType = RallyType.allCases.first(where: { $0.animalName == token }) {
+                return rallyType.emoji
+            }
+            // Also check rawValue for backward compatibility
+            return RallyType(rawValue: token)?.emoji
+        }
     }
     
     // MARK: - Initializers
@@ -132,11 +155,11 @@ struct StrokeSequenceView: View {
         self.serveEmoji = serveInfo.emoji
         self.receiveEmoji = Self.extractReceiveEmoji(
             receiveTypeString: point.receiveType,
-            hasFruitToken: point.strokeTokens.contains(.fruit)
+            strokeTokens: point.strokeTokens
         )
         self.rallyEmojis = Self.extractRallyEmojis(
             rallyTypes: point.rallyTypes,
-            animalTokenCount: point.strokeTokens.filter { $0 == .animal }.count
+            strokeTokens: point.strokeTokens
         )
         self.onRallyTap = nil
         self.reverseOrder = reverseOrder
@@ -150,11 +173,11 @@ struct StrokeSequenceView: View {
         let strokeTokens = pointData.strokeTokenValues
         self.receiveEmoji = Self.extractReceiveEmoji(
             receiveTypeString: pointData.receiveType,
-            hasFruitToken: strokeTokens.contains(.fruit)
+            strokeTokens: strokeTokens
         )
         self.rallyEmojis = Self.extractRallyEmojis(
             rallyTypes: pointData.rallyTypes,
-            animalTokenCount: strokeTokens.filter { $0 == .animal }.count
+            strokeTokens: strokeTokens
         )
         self.onRallyTap = nil
         self.reverseOrder = reverseOrder
