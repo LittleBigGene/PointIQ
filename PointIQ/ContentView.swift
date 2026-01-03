@@ -332,11 +332,11 @@ struct ContentView: View {
             
             // Convert PointData back to Point
             guard let outcome = Outcome(rawValue: pointData.outcome) else { continue }
-            let strokeTokens = pointData.strokeTokens.compactMap { StrokeToken(rawValue: $0) }
+            // strokeTokens are already strings (SS, Banana, Dragon, etc.)
             
             let point = Point(
                 timestamp: pointData.timestamp,
-                strokeTokens: strokeTokens,
+                strokeTokens: pointData.strokeTokens,
                 outcome: outcome,
                 match: match,
                 game: game,
