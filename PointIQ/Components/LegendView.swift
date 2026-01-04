@@ -15,6 +15,7 @@ struct LegendView: View {
     @AppStorage("legendGameRulesExpanded") private var isGameRulesExpanded: Bool = true
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     @AppStorage("pointsToWinGame") private var pointsToWinGame: Int = 11
+    @AppStorage("legendMode") private var isPostGameMode: Bool = true
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
@@ -40,14 +41,6 @@ struct LegendView: View {
         }
     }
     
-    private func pointsToWinDescription(for language: Language) -> String {
-        // This is no longer used since we have an editable stepper, but keeping for consistency
-        switch language {
-        case .english: return "\(pointsToWinGame) points"
-        case .japanese: return "\(pointsToWinGame)点"
-        case .chinese: return "\(pointsToWinGame)分"
-        }
-    }
     
     private func winBy2Text(for language: Language) -> String {
         switch language {
@@ -99,138 +92,7 @@ struct LegendView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    // Serve Section
-                    DisclosureGroup(isExpanded: $isServeExpanded) {
-                        // Serve Types
-                        ForEach(ServeType.allCases, id: \.self) { serveType in
-                            HStack(spacing: 16) {
-                                Text(serveType.rawValue)
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.primary)
-                                    .frame(width: 40)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(serveType.displayName(for: selectedLanguage))
-                                        .font(.headline)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text("🫴")
-                                .font(.title2)
-                            Text("Serve")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Receive Section
-                    DisclosureGroup(isExpanded: $isReceiveExpanded) {
-                        // Receive Types
-                        ForEach(ReceiveType.allCases, id: \.self) { receiveType in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 16) {
-                                    Text(receiveType.emoji)
-                                        .font(.system(size: 32))
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(receiveType.displayName(for: selectedLanguage)) / \(receiveType.spinType(for: selectedLanguage))")
-                                            .font(.headline)
-                                        Text(receiveType.fruitName)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                Text(receiveType.whyItWorks(for: selectedLanguage))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.leading, 48)
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text("👁️")
-                                .font(.title2)
-                            Text("Receive")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Rally Section
-                    DisclosureGroup(isExpanded: $isRallyExpanded) {
-                        // Rally Types
-                        ForEach(RallyType.allCases, id: \.self) { rallyType in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(spacing: 16) {
-                                    Text(rallyType.emoji)
-                                        .font(.system(size: 32))
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("\(rallyType.displayName(for: selectedLanguage)) / \(rallyType.spinType(for: selectedLanguage))")
-                                            .font(.headline)
-                                        Text(rallyType.animalName)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                Text(rallyType.whyItWorks(for: selectedLanguage))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .padding(.leading, 48)
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(StrokeToken.animal.emoji)
-                                .font(.title2)
-                            Text("Rally")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Outcomes Section
-                    DisclosureGroup(isExpanded: $isOutcomesExpanded) {
-                        ForEach(Outcome.allCases, id: \.self) { outcome in
-                            HStack(spacing: 16) {
-                                Text(outcome.emoji)
-                                    .font(.system(size: 32))
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(outcome.displayName(for: selectedLanguage))
-                                        .font(.headline)
-                                }
-                                Spacer()
-                            }
-                            .padding(.vertical, 8)
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text("🏓")
-                                .font(.title2)
-                            Text("Outcomes")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .padding()
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(12)
-                    
-                    // Game Rules Section
+                    // Game Rules Section (moved to top)
                     DisclosureGroup(isExpanded: $isGameRulesExpanded) {
                         VStack(alignment: .leading, spacing: 8) {
                             // Editable Points to Win
@@ -272,6 +134,139 @@ struct LegendView: View {
                     .padding()
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(12)
+                    
+                    // Serve Section (shown only in post-game mode)
+                    if isPostGameMode {
+                        DisclosureGroup(isExpanded: $isServeExpanded) {
+                            // Serve Types
+                            ForEach(ServeType.allCases, id: \.self) { serveType in
+                                HStack(spacing: 16) {
+                                    Text(serveType.rawValue)
+                                        .font(.system(size: 24, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 40)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(serveType.displayName(for: selectedLanguage))
+                                            .font(.headline)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("🫴")
+                                    .font(.title2)
+                                Text("Serve")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        .padding()
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(12)
+                        
+                        // Receive Section (shown only in post-game mode)
+                        DisclosureGroup(isExpanded: $isReceiveExpanded) {
+                            // Receive Types
+                            ForEach(ReceiveType.allCases, id: \.self) { receiveType in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 16) {
+                                        Text(receiveType.emoji)
+                                            .font(.system(size: 32))
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("\(receiveType.displayName(for: selectedLanguage)) / \(receiveType.spinType(for: selectedLanguage))")
+                                                .font(.headline)
+                                            Text(receiveType.fruitName)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    Text(receiveType.whyItWorks(for: selectedLanguage))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 48)
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("👁️")
+                                    .font(.title2)
+                                Text("Receive")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        .padding()
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(12)
+                        
+                        // Rally Section (shown only in post-game mode)
+                        DisclosureGroup(isExpanded: $isRallyExpanded) {
+                            // Rally Types
+                            ForEach(RallyType.allCases, id: \.self) { rallyType in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 16) {
+                                        Text(rallyType.emoji)
+                                            .font(.system(size: 32))
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("\(rallyType.displayName(for: selectedLanguage)) / \(rallyType.spinType(for: selectedLanguage))")
+                                                .font(.headline)
+                                            Text(rallyType.animalName)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    Text(rallyType.whyItWorks(for: selectedLanguage))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 48)
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(StrokeToken.animal.emoji)
+                                    .font(.title2)
+                                Text("Rally")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        .padding()
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                    
+                    // Outcomes Section
+                    DisclosureGroup(isExpanded: $isOutcomesExpanded) {
+                        ForEach(Outcome.allCases, id: \.self) { outcome in
+                            HStack(spacing: 16) {
+                                Text(outcome.emoji)
+                                    .font(.system(size: 32))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(outcome.displayName(for: selectedLanguage))
+                                        .font(.headline)
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("🏓")
+                                .font(.title2)
+                            Text("Outcomes")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                        }
+                    }
+                    .padding()
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(12)
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -295,20 +290,45 @@ struct LegendView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Picker("Language", selection: $selectedLanguageRaw) {
-                            ForEach(Language.allCases, id: \.rawValue) { language in
+                    HStack(spacing: 12) {
+                        Menu {
+                            Button(action: { isPostGameMode = false }) {
                                 HStack {
-                                    Text(language.flag)
-                                    Text(language.displayName)
+                                    Text("In-Game")
+                                    if !isPostGameMode {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
-                                .tag(language.rawValue)
                             }
+                            Button(action: { isPostGameMode = true }) {
+                                HStack {
+                                    Text("Post-Game")
+                                    if isPostGameMode {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        } label: {
+                            Text(isPostGameMode ? "Post-Game" : "In-Game")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
                         }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text(selectedLanguage.flag)
-                                .font(.title3)
+                        
+                        Menu {
+                            Picker("Language", selection: $selectedLanguageRaw) {
+                                ForEach(Language.allCases, id: \.rawValue) { language in
+                                    HStack {
+                                        Text(language.flag)
+                                        Text(language.displayName)
+                                    }
+                                    .tag(language.rawValue)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(selectedLanguage.flag)
+                                    .font(.title3)
+                            }
                         }
                     }
                 }

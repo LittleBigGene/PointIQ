@@ -27,6 +27,7 @@ struct QuickLoggingView: View {
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    @AppStorage("legendMode") private var isPostGameMode: Bool = true
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
@@ -79,10 +80,15 @@ struct QuickLoggingView: View {
         VStack(spacing: 0) {
             previewHeader
             Divider()
-            mainContentView
-            if !shouldHideOutcomes {
-                Divider()
-                outcomesRow
+            if isPostGameMode {
+                mainContentView
+                if !shouldHideOutcomes {
+                    Divider()
+                    outcomesRow
+                }
+            } else {
+                // In-game mode: outcomes fill the screen
+                inGameOutcomesView
             }
         }
         .onChange(of: selectedOutcome) { _, newValue in
@@ -98,6 +104,12 @@ struct QuickLoggingView: View {
                     // Direct outcome selection without serve/receive
                     submitDirectOutcome(outcome: outcome)
                 }
+            }
+        }
+        .onChange(of: isPostGameMode) { _, newValue in
+            // Reset selected strokes when switching to in-game mode
+            if !newValue {
+                resetInput()
             }
         }
         .onChange(of: isVoiceInputActive) { _, isActive in
@@ -132,77 +144,88 @@ struct QuickLoggingView: View {
         return leftIsServing ? (serve, receive) : (receive, serve)
     }
     
+    @ViewBuilder
     private var previewHeader: some View {
-        // Calculate dynamic spacer width: start with 13 emojis, reduce by 1 for each selected stroke
-        let emojiWidth: CGFloat = 18
-        let emojiSpacing: CGFloat = 6
-        
-        let strokeCount = (selectedServe != nil ? 1 : 0) + 
-                         (selectedReceive != nil ? 1 : 0) + 
-                         selectedRallies.count
-        let emojiCount = max(0, 13 - strokeCount) // Minimum 0
-        let dynamicSpacerWidth = (emojiWidth * CGFloat(emojiCount)) + (emojiSpacing * CGFloat(max(0, emojiCount - 1)))
-        
-        return HStack(spacing: 12) {
-            // Reset button on left when reversed
-            if hasSelection && rightSideServes {
-                Button(action: resetInput) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                }
+        // In in-game mode, hide stroke preview
+        if !isPostGameMode {
+            HStack {
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color.secondary.opacity(0.05))
+        } else {
+            // Calculate dynamic spacer width: start with 13 emojis, reduce by 1 for each selected stroke
+            let emojiWidth: CGFloat = 18
+            let emojiSpacing: CGFloat = 6
             
-            if hasSelection {
-                if rightSideServes {
-                    // In reverse mode, add spacer to push content to the right (reduces as strokes are added)
-                    Spacer()
-                        .frame(width: dynamicSpacerWidth)
+            let strokeCount = (selectedServe != nil ? 1 : 0) + 
+                             (selectedReceive != nil ? 1 : 0) + 
+                             selectedRallies.count
+            let emojiCount = max(0, 13 - strokeCount) // Minimum 0
+            let dynamicSpacerWidth = (emojiWidth * CGFloat(emojiCount)) + (emojiSpacing * CGFloat(max(0, emojiCount - 1)))
+            
+            HStack(spacing: 12) {
+                // Reset button on left when reversed
+                if hasSelection && rightSideServes {
+                    Button(action: resetInput) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
-                StrokeSequenceView(
-                    serve: selectedServe,
-                    receive: selectedReceive,
-                    rallies: selectedRallies,
-                    onRallyTap: { index in
-                        if index < selectedRallies.count {
-                            selectedRallies.removeSubrange(index..<selectedRallies.count)
-                        }
-                    },
-                    reverseOrder: rightSideServes
-                )
-                .frame(maxWidth: .infinity, alignment: rightSideServes ? .trailing : .leading)
-            } else {
-                HStack {
-                    Text(placeholderText.left)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(placeholderText.right)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                if hasSelection {
+                    if rightSideServes {
+                        // In reverse mode, add spacer to push content to the right (reduces as strokes are added)
+                        Spacer()
+                            .frame(width: dynamicSpacerWidth)
+                    }
+                    
+                    StrokeSequenceView(
+                        serve: selectedServe,
+                        receive: selectedReceive,
+                        rallies: selectedRallies,
+                        onRallyTap: { index in
+                            if index < selectedRallies.count {
+                                selectedRallies.removeSubrange(index..<selectedRallies.count)
+                            }
+                        },
+                        reverseOrder: rightSideServes
+                    )
+                    .frame(maxWidth: .infinity, alignment: rightSideServes ? .trailing : .leading)
+                } else {
+                    HStack {
+                        Text(placeholderText.left)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(placeholderText.right)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-            }
-            
-            // Reset button on right when not reversed
-            if hasSelection && !rightSideServes {
-                Button(action: resetInput) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
+                
+                // Reset button on right when not reversed
+                if hasSelection && !rightSideServes {
+                    Button(action: resetInput) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)            
-        .background(Color.secondary.opacity(0.05))
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // Flip serving order only if game has no points and no current selection
-            if let game = currentGame, game.pointCount == 0, !hasSelection {
-                game.playerServesFirst.toggle()
-                try? modelContext.save()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)            
+            .background(Color.secondary.opacity(0.05))
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // Flip serving order only if game has no points and no current selection
+                if let game = currentGame, game.pointCount == 0, !hasSelection {
+                    game.playerServesFirst.toggle()
+                    try? modelContext.save()
+                }
             }
         }
     }
@@ -369,7 +392,7 @@ struct QuickLoggingView: View {
     private var outcomesRow: some View {
         HStack(spacing: 8) {
             ForEach(orderedOutcomes, id: \.self) { outcome in
-                OutcomeButton(
+                PostGameOutcomeButton(
                     outcome: outcome,
                     isSelected: selectedOutcome == outcome
                 ) {
@@ -380,6 +403,28 @@ struct QuickLoggingView: View {
         .padding(.horizontal, 12)
         .padding(.top, 4)
         .padding(.bottom, 40) // Extra padding to account for tab bar
+        .background(Color.secondary.opacity(0.05))
+    }
+    
+    private var inGameOutcomesView: some View {
+        ScrollView {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 16),
+                GridItem(.flexible(), spacing: 16)
+            ], spacing: 16) {
+                ForEach(orderedOutcomes, id: \.self) { outcome in
+                    InGameOutcomeButton(
+                        outcome: outcome,
+                        isSelected: selectedOutcome == outcome
+                    ) {
+                        selectedOutcome = outcome
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 40) // Extra padding to account for tab bar
+        }
         .background(Color.secondary.opacity(0.05))
     }
     
