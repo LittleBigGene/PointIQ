@@ -28,6 +28,7 @@ struct QuickLoggingView: View {
     @State private var confirmationEmoji = ""
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
@@ -48,6 +49,22 @@ struct QuickLoggingView: View {
         case .english: return "Receive"
         case .japanese: return "レシーブ"
         case .chinese: return "接球"
+        }
+    }
+    
+    private func forehandText(for language: Language) -> String {
+        switch language {
+        case .english: return "Forehand"
+        case .japanese: return "フォアハンド"
+        case .chinese: return "正手"
+        }
+    }
+    
+    private func backhandText(for language: Language) -> String {
+        switch language {
+        case .english: return "Backhand"
+        case .japanese: return "バックハンド"
+        case .chinese: return "反手"
         }
     }
     
@@ -72,8 +89,22 @@ struct QuickLoggingView: View {
     }
     
     // Outcomes in correct order based on side swap (reversed when swapped to keep colors consistent)
+    // Used for post-game mode
     private var orderedOutcomes: [Outcome] {
         shouldSwapPlayers ? Outcome.allCases.reversed() : Outcome.allCases
+    }
+    
+    // In-game outcomes always use standard order (unaffected by side swapping)
+    // Excludes opponentError and myError, includes badSR at the top
+    private var inGameOrderedOutcomes: [Outcome] {
+        let filtered = Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
+        // Move badSR to the top
+        var reordered = filtered
+        if let badSRIndex = reordered.firstIndex(of: .badSR) {
+            reordered.remove(at: badSRIndex)
+            reordered.insert(.badSR, at: 0)
+        }
+        return reordered
     }
     
     var body: some View {
@@ -144,13 +175,49 @@ struct QuickLoggingView: View {
         return leftIsServing ? (serve, receive) : (receive, serve)
     }
     
+    private var inGamePlaceholderText: (left: String, right: String) {
+        // For in-game mode: show Forehand/Backhand based on player handedness
+        let isRightHanded = playerHandedness == "Right-handed"
+        let forehand = forehandText(for: selectedLanguage)
+        let backhand = backhandText(for: selectedLanguage)
+        
+        // Right-handed: Left = Backhand, Right = Forehand
+        // Left-handed: Left = Forehand, Right = Backhand
+        return isRightHanded ? (backhand, forehand) : (forehand, backhand)
+    }
+    
     @ViewBuilder
     private var previewHeader: some View {
-        // In in-game mode, hide stroke preview
+        // In in-game mode, show Forehand/Backhand labels with undo button
         if !isPostGameMode {
             HStack {
+                Text(inGamePlaceholderText.left)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                
                 Spacer()
+                
+                // Undo button in center
+                if lastPoint != nil {
+                    Button(action: onUndo) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.accentColor)
+                    }
+                } else {
+                    // Placeholder to maintain spacing
+                    Image(systemName: "arrow.uturn.backward.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.clear)
+                }
+                
+                Spacer()
+                
+                Text(inGamePlaceholderText.right)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
             }
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(Color.secondary.opacity(0.05))
@@ -408,19 +475,32 @@ struct QuickLoggingView: View {
     
     private var inGameOutcomesView: some View {
         ScrollView {
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 16),
-                GridItem(.flexible(), spacing: 16)
-            ], spacing: 16) {
-                ForEach(orderedOutcomes, id: \.self) { outcome in
+            VStack(spacing: 10) {
+                ForEach(inGameOrderedOutcomes, id: \.self) { outcome in
                     InGameOutcomeButton(
                         outcome: outcome,
-                        isSelected: selectedOutcome == outcome
-                    ) {
-                        selectedOutcome = outcome
-                    }
+                        isSelected: selectedOutcome == outcome,
+                        onTap: {
+                            if outcome == .badSR {
+                                // Bad SR tap = bad serve
+                                submitBadSR(isServe: true, strokeSide: nil)
+                            } else {
+                                selectedOutcome = outcome
+                            }
+                        },
+                        onDrag: { strokeSide in
+                            if outcome == .badSR {
+                                // Bad SR drag = bad receive with forehand/backhand
+                                submitBadSR(isServe: false, strokeSide: strokeSide)
+                            } else {
+                                submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
+                            }
+                        }
+                    )
+                    .frame(maxWidth: 200) // Narrower width for taller buttons
                 }
             }
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
             .padding(.top, 20)
             .padding(.bottom, 40) // Extra padding to account for tab bar
@@ -493,16 +573,45 @@ struct QuickLoggingView: View {
         showConfirmation(emoji: outcome.emoji)
     }
     
-    private func submitDirectOutcome(outcome: Outcome) {
+    private func submitDirectOutcome(outcome: Outcome, strokeSide: StrokeSide? = nil) {
         // Direct outcome selection - point ends immediately
         // Store original outcome for analytics, Game.swift handles scoring correctly
+        var strokeTokens: [String] = []
+        
+        // Add stroke side info if provided (for in-game mode with drag gesture)
+        if let side = strokeSide {
+            strokeTokens.append("\(outcome.displayName(for: selectedLanguage)) (\(side.displayName))")
+        }
+        
         let point = Point(
-            strokeTokens: [], // No strokes for direct outcome
+            strokeTokens: strokeTokens,
             outcome: outcome,
             serveType: nil
         )
         onPointLogged(point)
         showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitBadSR(isServe: Bool, strokeSide: StrokeSide?) {
+        // Bad SR: tap = bad serve, drag = bad receive with forehand/backhand
+        var strokeTokens: [String] = []
+        
+        if isServe {
+            // Bad serve
+            strokeTokens.append("Bad SR (Serve)")
+        } else if let side = strokeSide {
+            // Bad receive with forehand/backhand
+            strokeTokens.append("Bad SR (Receive \(side.displayName))")
+        }
+        
+        let point = Point(
+            strokeTokens: strokeTokens,
+            outcome: .badSR,
+            serveType: isServe ? "BadSR" : nil,
+            receiveType: isServe ? nil : "BadSR"
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: Outcome.badSR.emoji)
     }
     
     private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {

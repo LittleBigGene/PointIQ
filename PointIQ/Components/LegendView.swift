@@ -16,6 +16,7 @@ struct LegendView: View {
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     @AppStorage("pointsToWinGame") private var pointsToWinGame: Int = 11
     @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
@@ -75,6 +76,30 @@ struct LegendView: View {
         }
     }
     
+    private func dragInstructionsText(for language: Language) -> String {
+        let isRightHanded = playerHandedness == "Right-handed"
+        switch language {
+        case .english:
+            if isRightHanded {
+                return "Since you are right-handed: Drag left for Backhand, drag right for Forehand"
+            } else {
+                return "Since you are left-handed: Drag left for Forehand, drag right for Backhand"
+            }
+        case .japanese:
+            if isRightHanded {
+                return "右利きなので: 左にドラッグでバックハンド、右にドラッグでフォアハンド"
+            } else {
+                return "左利きなので: 左にドラッグでフォアハンド、右にドラッグでバックハンド"
+            }
+        case .chinese:
+            if isRightHanded {
+                return "由於你是右撇子：向左拖動為反手，向右拖動為正手"
+            } else {
+                return "由於你是左撇子：向左拖動為正手，向右拖動為反手"
+            }
+        }
+    }
+    
     private var allExpanded: Bool {
         isServeExpanded && isReceiveExpanded && isRallyExpanded && isOutcomesExpanded && isGameRulesExpanded
     }
@@ -86,6 +111,16 @@ struct LegendView: View {
         isRallyExpanded = shouldExpand
         isOutcomesExpanded = shouldExpand
         isGameRulesExpanded = shouldExpand
+    }
+    
+    // Outcomes to display based on mode
+    // In in-game mode, exclude opponentError and myError, include badSR
+    private var displayedOutcomes: [Outcome] {
+        if isPostGameMode {
+            return Outcome.allCases
+        } else {
+            return Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
+        }
     }
     
     var body: some View {
@@ -243,17 +278,35 @@ struct LegendView: View {
                     
                     // Outcomes Section
                     DisclosureGroup(isExpanded: $isOutcomesExpanded) {
-                        ForEach(Outcome.allCases, id: \.self) { outcome in
-                            HStack(spacing: 16) {
-                                Text(outcome.emoji)
-                                    .font(.system(size: 32))
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(outcome.displayName(for: selectedLanguage))
-                                        .font(.headline)
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Show drag instructions in in-game mode
+                            if !isPostGameMode {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "hand.draw")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.accentColor)
+                                    Text(dragInstructionsText(for: selectedLanguage))
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
                                 }
-                                Spacer()
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.accentColor.opacity(0.1))
+                                .cornerRadius(8)
                             }
-                            .padding(.vertical, 8)
+                            
+                            ForEach(displayedOutcomes, id: \.self) { outcome in
+                                HStack(spacing: 16) {
+                                    Text(outcome.emoji)
+                                        .font(.system(size: 32))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(outcome.displayName(for: selectedLanguage))
+                                            .font(.headline)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                            }
                         }
                     } label: {
                         HStack(spacing: 8) {
@@ -283,7 +336,7 @@ struct LegendView: View {
                     Button(action: {
                         toggleAllPanels()
                     }) {
-                        Text("Stroke Legend")
+                        Text("Legend")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                             .foregroundColor(.primary)

@@ -53,7 +53,8 @@ final class Game {
         points?.filter { 
             $0.outcome == .iMissed || 
             $0.outcome == .myError || 
-            $0.outcome == .unlucky
+            $0.outcome == .unlucky ||
+            $0.outcome == .badSR
         }.count ?? 0
     }
     
