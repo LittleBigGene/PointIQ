@@ -111,7 +111,7 @@ struct PointHistoryView: View {
             switch outcome {
             case .myWinner, .opponentError:
                 playerScore += 1
-            case .iMissed, .myError, .unlucky, .badSR:
+            case .iMissed, .myError, .unlucky:
                 opponentScore += 1
             }
         }
@@ -151,7 +151,7 @@ struct PointHistoryView: View {
         switch outcome {
         case .myWinner, .opponentError:
             return (1, 0)
-        case .iMissed, .myError, .unlucky, .badSR:
+        case .iMissed, .myError, .unlucky:
             return (0, 1)
         }
     }

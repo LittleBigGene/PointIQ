@@ -15,7 +15,6 @@ enum Outcome: String, Codable, CaseIterable {
     case myError = "my_error"
     case iMissed = "i_missed"
     case unlucky = "unlucky"
-    case badSR = "bad_sr"
     
     var displayName: String {
         switch self {
@@ -24,7 +23,6 @@ enum Outcome: String, Codable, CaseIterable {
         case .myError: return "Error"
         case .iMissed: return "Missed"
         case .unlucky: return "Net/Edge"
-        case .badSR: return "Bad Serve/Receive"
         }
     }
     
@@ -35,7 +33,6 @@ enum Outcome: String, Codable, CaseIterable {
         case .myError: return "自分のミス"
         case .iMissed: return "ノータッチ"
         case .unlucky: return "ネット・エッジ"
-        case .badSR: return "悪いサーブ/レシーブ"
         }
     }
     
@@ -46,7 +43,6 @@ enum Outcome: String, Codable, CaseIterable {
         case .myError: return "自己失誤"
         case .iMissed: return "沒碰到球"
         case .unlucky: return "擦邊擦網"
-        case .badSR: return "發接發失誤"
         }
     }
     
@@ -57,13 +53,12 @@ enum Outcome: String, Codable, CaseIterable {
         case .myError: return "⚠️"
         case .iMissed: return "😿"
         case .unlucky: return "🙃"
-        case .badSR: return "❌"
         }
     }
     
     var backgroundColor: Color {
         switch self {
-        case .unlucky, .myError, .iMissed, .badSR:
+        case .unlucky, .myError, .iMissed:
             // Red-ish background: point given to opponent
             return Color.red.opacity(0.15)
         case .opponentError, .myWinner:

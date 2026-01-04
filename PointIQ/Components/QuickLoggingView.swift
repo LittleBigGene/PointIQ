@@ -95,16 +95,9 @@ struct QuickLoggingView: View {
     }
     
     // In-game outcomes always use standard order (unaffected by side swapping)
-    // Excludes opponentError and myError, includes badSR at the top
+    // Excludes opponentError and myError
     private var inGameOrderedOutcomes: [Outcome] {
-        let filtered = Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
-        // Move badSR to the top
-        var reordered = filtered
-        if let badSRIndex = reordered.firstIndex(of: .badSR) {
-            reordered.remove(at: badSRIndex)
-            reordered.insert(.badSR, at: 0)
-        }
-        return reordered
+        return Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
     }
     
     var body: some View {
@@ -481,20 +474,10 @@ struct QuickLoggingView: View {
                         outcome: outcome,
                         isSelected: selectedOutcome == outcome,
                         onTap: {
-                            if outcome == .badSR {
-                                // Bad SR tap = bad serve
-                                submitBadSR(isServe: true, strokeSide: nil)
-                            } else {
-                                selectedOutcome = outcome
-                            }
+                            selectedOutcome = outcome
                         },
                         onDrag: { strokeSide in
-                            if outcome == .badSR {
-                                // Bad SR drag = bad receive with forehand/backhand
-                                submitBadSR(isServe: false, strokeSide: strokeSide)
-                            } else {
-                                submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
-                            }
+                            submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
                         }
                     )
                     .frame(maxWidth: 200) // Narrower width for taller buttons
@@ -590,28 +573,6 @@ struct QuickLoggingView: View {
         )
         onPointLogged(point)
         showConfirmation(emoji: outcome.emoji)
-    }
-    
-    private func submitBadSR(isServe: Bool, strokeSide: StrokeSide?) {
-        // Bad SR: tap = bad serve, drag = bad receive with forehand/backhand
-        var strokeTokens: [String] = []
-        
-        if isServe {
-            // Bad serve
-            strokeTokens.append("Bad SR (Serve)")
-        } else if let side = strokeSide {
-            // Bad receive with forehand/backhand
-            strokeTokens.append("Bad SR (Receive \(side.displayName))")
-        }
-        
-        let point = Point(
-            strokeTokens: strokeTokens,
-            outcome: .badSR,
-            serveType: isServe ? "BadSR" : nil,
-            receiveType: isServe ? nil : "BadSR"
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: Outcome.badSR.emoji)
     }
     
     private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {

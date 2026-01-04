@@ -163,13 +163,8 @@ struct InGameOutcomeButton: View {
                     HStack(spacing: 4) {
                         Image(systemName: dragOffset.width < 0 ? "arrow.left" : "arrow.right")
                             .font(.system(size: 8))
-                        if outcome == .badSR {
-                            Text("Bad Receive \(side.displayName)")
-                                .font(.system(size: 9, weight: .medium))
-                        } else {
-                            Text(side.displayName)
-                                .font(.system(size: 10, weight: .medium))
-                        }
+                        Text(side.displayName)
+                            .font(.system(size: 10, weight: .medium))
                     }
                     .foregroundColor(.accentColor)
                     .padding(.top, 2)
