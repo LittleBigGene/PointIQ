@@ -17,7 +17,7 @@ final class Match: Identifiable {
     @Relationship(deleteRule: .cascade, inverse: \Game.match) var games: [Game]?
     var opponentName: String?
     var notes: String?
-    var bestOf: Int // Best of 3, 5, or 7 games
+    var bestOf: Int // Best of 1, 3, 5, or 7 games
     
     init(
         id: UUID = UUID(),
@@ -56,11 +56,13 @@ final class Match: Identifiable {
     }
     
     var gamesWon: Int {
-        games?.filter { $0.winner == true }.count ?? 0
+        // Only count games that have been ended (have an endDate)
+        games?.filter { $0.endDate != nil && $0.winner == true }.count ?? 0
     }
     
     var gamesLost: Int {
-        games?.filter { $0.winner == false }.count ?? 0
+        // Only count games that have been ended (have an endDate)
+        games?.filter { $0.endDate != nil && $0.winner == false }.count ?? 0
     }
     
     // MARK: - Match Rules Logic

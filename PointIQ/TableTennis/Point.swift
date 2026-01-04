@@ -11,7 +11,7 @@ import SwiftData
 @Model
 final class Point {
     var timestamp: Date
-    var strokeTokens: [StrokeToken]
+    var strokeTokens: [String] // Store actual stroke types: serve types (SS, SL, DS, etc.), receive types, rally types
     var outcome: Outcome
     var match: Match?
     var game: Game?
@@ -21,7 +21,7 @@ final class Point {
     
     init(
         timestamp: Date = Date(),
-        strokeTokens: [StrokeToken] = [],
+        strokeTokens: [String] = [],
         outcome: Outcome,
         match: Match? = nil,
         game: Game? = nil,
@@ -43,14 +43,14 @@ final class Point {
     var jsonRepresentation: [String: Any] {
         [
             "timestamp": timestamp.timeIntervalSince1970,
-            "strokes": strokeTokens.map { $0.rawValue },
+            "strokes": strokeTokens,
             "outcome": outcome.rawValue
         ]
     }
     
     /// Unique identifier for SwiftUI ForEach
     var uniqueID: String {
-        "\(timestamp.timeIntervalSince1970)-\(outcome.rawValue)-\(strokeTokens.map { $0.rawValue }.joined(separator: ","))"
+        "\(timestamp.timeIntervalSince1970)-\(outcome.rawValue)-\(strokeTokens.joined(separator: ","))"
     }
 }
 

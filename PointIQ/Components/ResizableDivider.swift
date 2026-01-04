@@ -46,7 +46,7 @@ struct ResizableDivider: View {
                     // Calculate new ratio based on drag distance
                     let dragDelta = value.translation.height
                     let deltaRatio = dragDelta / totalHeight
-                    let newRatio = initialRatio - deltaRatio
+                    let newRatio = initialRatio + deltaRatio
                     
                     // Clamp the ratio between min and max
                     let clampedRatio = max(minRatio, min(maxRatio, newRatio))

@@ -26,6 +26,29 @@ struct QuickLoggingView: View {
     @State private var selectedOutcome: Outcome?
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // MARK: - Translation Helpers
+    
+    private func serveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Serve"
+        case .japanese: return "サーブ"
+        case .chinese: return "發球"
+        }
+    }
+    
+    private func receiveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Receive"
+        case .japanese: return "レシーブ"
+        case .chinese: return "接球"
+        }
+    }
     
     private var isInRallyMode: Bool {
         selectedServe != nil && selectedReceive != nil
@@ -104,7 +127,9 @@ struct QuickLoggingView: View {
     private var placeholderText: (left: String, right: String) {
         // Left side serves when: not swapped and player serves, OR swapped and opponent serves
         let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
-        return leftIsServing ? ("Serve", "Receive") : ("Receive", "Serve")
+        let serve = serveText(for: selectedLanguage)
+        let receive = receiveText(for: selectedLanguage)
+        return leftIsServing ? (serve, receive) : (receive, serve)
     }
     
     private var previewHeader: some View {
@@ -389,7 +414,7 @@ struct QuickLoggingView: View {
         // Double-tap serve: whoever is serving gets the point (ace serve)
         let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
         let point = Point(
-            strokeTokens: [.vegetable], // Only serve
+            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
             outcome: outcome,
             serveType: serve.rawValue
         )
@@ -400,7 +425,7 @@ struct QuickLoggingView: View {
     private func submitServeOnlyPoint(serve: ServeType, outcome: Outcome) {
         // Serve-only point: serve selected then outcome selected (records serve in history)
         let point = Point(
-            strokeTokens: [.vegetable], // Only serve
+            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
             outcome: outcome,
             serveType: serve.rawValue
         )
@@ -414,7 +439,7 @@ struct QuickLoggingView: View {
         // If opponent is receiving (player is serving): point goes to opponent (.iMissed)
         let outcome: Outcome = isPlayerServing ? .iMissed : .myWinner
         let point = Point(
-            strokeTokens: [.fruit], // Only receive
+            strokeTokens: [receive.fruitName], // Store fruit name (e.g., "Banana")
             outcome: outcome,
             serveType: nil,
             receiveType: receive.rawValue
@@ -436,9 +461,9 @@ struct QuickLoggingView: View {
     }
     
     private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
-        // Map serve to vegetable token, receive to fruit token, and rallies to animal tokens
-        var strokeTokens: [StrokeToken] = [.vegetable, .fruit] // Serve then receive
-        strokeTokens.append(contentsOf: Array(repeating: .animal, count: rallies.count)) // Add rally tokens
+        // Store stroke tokens: serve type (SS, SL, DS, etc.), fruit name (Banana, etc.), animal name (Dragon, etc.)
+        var strokeTokens: [String] = [serve.rawValue, receive.fruitName] // Serve then receive (fruit name)
+        strokeTokens.append(contentsOf: rallies.map { $0.animalName }) // Add rally animal names
         
         // Store original outcome - Game.swift handles scoring correctly
         let point = Point(

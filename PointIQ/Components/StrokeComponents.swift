@@ -76,6 +76,12 @@ struct StrokeSequenceView: View {
     var reverseOrder: Bool = false // If true, display sequence from right to left
     var opponentServed: Bool = false // If true, opponent started the sequence with a serve
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     // MARK: - Initialization Helpers
     
     private static func extractServeInfo(from serve: ServeType?) -> (shortName: String?, emoji: String?) {
@@ -92,19 +98,42 @@ struct StrokeSequenceView: View {
         return extractServeInfo(from: serveType)
     }
     
-    private static func extractReceiveEmoji(receiveTypeString: String?, hasFruitToken: Bool) -> String? {
+    private static func extractReceiveEmoji(receiveTypeString: String?, strokeTokens: [String]) -> String? {
+        // First try to get from receiveType
         if let receiveTypeString = receiveTypeString,
            let receiveType = ReceiveType(rawValue: receiveTypeString) {
             return receiveType.emoji
         }
-        return hasFruitToken ? StrokeToken.fruit.emoji : nil
+        // Fallback: check if any stroke token is a fruit name (receive type)
+        for token in strokeTokens {
+            // Check if token matches a fruit name
+            if let receiveType = ReceiveType.allCases.first(where: { $0.fruitName == token }) {
+                return receiveType.emoji
+            }
+            // Also check rawValue for backward compatibility
+            if let receiveType = ReceiveType(rawValue: token) {
+                return receiveType.emoji
+            }
+        }
+        return nil
     }
     
-    private static func extractRallyEmojis(rallyTypes: [String], animalTokenCount: Int) -> [String] {
+    private static func extractRallyEmojis(rallyTypes: [String], strokeTokens: [String]) -> [String] {
+        // First try to get from rallyTypes array
         if !rallyTypes.isEmpty {
             return rallyTypes.compactMap { RallyType(rawValue: $0)?.emoji }
         }
-        return Array(repeating: StrokeToken.animal.emoji, count: animalTokenCount)
+        // Fallback: extract rally types from strokeTokens (after serve and receive)
+        // Serve and receive are typically the first two tokens, rest are rallies
+        let rallyTokens = strokeTokens.dropFirst(2) // Skip serve and receive
+        return rallyTokens.compactMap { token in
+            // Check if token matches an animal name
+            if let rallyType = RallyType.allCases.first(where: { $0.animalName == token }) {
+                return rallyType.emoji
+            }
+            // Also check rawValue for backward compatibility
+            return RallyType(rawValue: token)?.emoji
+        }
     }
     
     // MARK: - Initializers
@@ -126,11 +155,11 @@ struct StrokeSequenceView: View {
         self.serveEmoji = serveInfo.emoji
         self.receiveEmoji = Self.extractReceiveEmoji(
             receiveTypeString: point.receiveType,
-            hasFruitToken: point.strokeTokens.contains(.fruit)
+            strokeTokens: point.strokeTokens
         )
         self.rallyEmojis = Self.extractRallyEmojis(
             rallyTypes: point.rallyTypes,
-            animalTokenCount: point.strokeTokens.filter { $0 == .animal }.count
+            strokeTokens: point.strokeTokens
         )
         self.onRallyTap = nil
         self.reverseOrder = reverseOrder
@@ -144,11 +173,11 @@ struct StrokeSequenceView: View {
         let strokeTokens = pointData.strokeTokenValues
         self.receiveEmoji = Self.extractReceiveEmoji(
             receiveTypeString: pointData.receiveType,
-            hasFruitToken: strokeTokens.contains(.fruit)
+            strokeTokens: strokeTokens
         )
         self.rallyEmojis = Self.extractRallyEmojis(
             rallyTypes: pointData.rallyTypes,
-            animalTokenCount: strokeTokens.filter { $0 == .animal }.count
+            strokeTokens: strokeTokens
         )
         self.onRallyTap = nil
         self.reverseOrder = reverseOrder
@@ -242,13 +271,21 @@ struct StrokeSequenceView: View {
         }
     }
     
+    private func oppTagText(for language: Language) -> String {
+        switch language {
+        case .english: return "Opp"
+        case .japanese: return "相手"
+        case .chinese: return "對手"
+        }
+    }
+    
     /// Creates an emoji view for a sequence item
     @ViewBuilder
     private func emojiView(for item: (emoji: String, originalRallyIndex: Int?, type: EmojiType), at index: Int) -> some View {
         HStack(spacing: 4) {
             // Show "Opp" tag for serve type when opponent served
             if item.type == .serve && opponentServed {
-                Text("Opp")
+                Text(oppTagText(for: selectedLanguage))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
@@ -388,11 +425,17 @@ struct ServeTypeButton: View {
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         VStack(spacing: 6) {
             Text(serveType.shortName)
                 .font(.system(size: 20, weight: .bold))
-            Text(serveType.displayName)
+            Text(serveType.displayName(for: selectedLanguage))
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
                 .lineLimit(2)
@@ -413,11 +456,17 @@ struct ReceiveTypeButton: View {
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         VStack(spacing: 6) {
             Text(receiveType.emoji)
                 .font(.system(size: 20))
-            Text(receiveType.displayName)
+            Text(receiveType.displayName(for: selectedLanguage))
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
@@ -436,12 +485,18 @@ struct RallyTypeButton: View {
     let isSelected: Bool
     let action: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Text(rallyType.emoji)
                     .font(.system(size: 28))
-                Text(rallyType.displayName)
+                Text(rallyType.displayName(for: selectedLanguage))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
@@ -460,12 +515,18 @@ struct OutcomeButton: View {
     let isSelected: Bool
     let action: () -> Void
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Text(outcome.emoji)
                     .font(.system(size: 20))
-                Text(outcome.displayName)
+                Text(outcome.displayName(for: selectedLanguage))
                     .font(.system(size: 11, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
