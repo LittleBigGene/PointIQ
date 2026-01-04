@@ -68,36 +68,123 @@ struct QuickLoggingView: View {
         }
     }
     
+    // MARK: - Computed Properties
+    
     private var isInRallyMode: Bool {
         selectedServe != nil && selectedReceive != nil
     }
     
-    // Determine who is serving for the NEXT point
     private var isPlayerServing: Bool {
-        currentGame?.isPlayerServingNext ?? true // Default to player serving
+        currentGame?.isPlayerServingNext ?? true
     }
     
-    // Determine if players should be swapped (combines automatic and manual override)
     private var shouldSwapPlayers: Bool {
         guard let game = currentGame else { return false }
         return GameSideSwap.shouldSwapPlayers(gameNumber: game.gameNumber, manualSwapOverride: manualSwapOverride)
     }
     
-    // Hide outcomes when point history is tall (above 0.55)
     private var shouldHideOutcomes: Bool {
         pointHistoryHeightRatio > 0.55
     }
     
-    // Outcomes in correct order based on side swap (reversed when swapped to keep colors consistent)
-    // Used for post-game mode
     private var orderedOutcomes: [Outcome] {
         shouldSwapPlayers ? Outcome.allCases.reversed() : Outcome.allCases
     }
     
-    // In-game outcomes always use standard order (unaffected by side swapping)
-    // Excludes opponentError and myError
     private var inGameOrderedOutcomes: [Outcome] {
-        return Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
+        Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
+    }
+    
+    // MARK: - Point Submission
+    
+    private func submitAceServe(serve: ServeType) {
+        let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
+        let point = Point(
+            strokeTokens: [serve.rawValue],
+            outcome: outcome,
+            serveType: serve.rawValue
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitServeOnlyPoint(serve: ServeType, outcome: Outcome) {
+        let point = Point(
+            strokeTokens: [serve.rawValue],
+            outcome: outcome,
+            serveType: serve.rawValue
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitGoodReceive(receive: ReceiveType) {
+        let outcome: Outcome = isPlayerServing ? .iMissed : .myWinner
+        let point = Point(
+            strokeTokens: [receive.fruitName],
+            outcome: outcome,
+            serveType: nil,
+            receiveType: receive.rawValue
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitDirectOutcome(outcome: Outcome, strokeSide: StrokeSide? = nil) {
+        var strokeTokens: [String] = []
+        if let side = strokeSide {
+            strokeTokens.append("\(outcome.displayName(for: selectedLanguage)) (\(side.displayName))")
+        }
+        
+        let point = Point(
+            strokeTokens: strokeTokens,
+            outcome: outcome,
+            serveType: nil
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
+        var strokeTokens: [String] = [serve.rawValue, receive.fruitName]
+        strokeTokens.append(contentsOf: rallies.map { $0.animalName })
+        
+        let point = Point(
+            strokeTokens: strokeTokens,
+            outcome: outcome,
+            serveType: serve.rawValue,
+            receiveType: receive.rawValue,
+            rallyTypes: rallies.map { $0.rawValue }
+        )
+        onPointLogged(point)
+        showConfirmation(emoji: outcome.emoji)
+    }
+    
+    // MARK: - Point Counting
+    
+    /// Counts points by stroke side for a given outcome
+    /// Only counts points that have stroke side information (logged with drag gestures)
+    private func countPointsBySide(outcome: Outcome) -> (forehand: Int, backhand: Int) {
+        guard let game = currentGame, let points = game.points else {
+            return (0, 0)
+        }
+        
+        var forehandCount = 0
+        var backhandCount = 0
+        
+        for point in points where point.outcome == outcome {
+            for token in point.strokeTokens {
+                if token.contains("(Forehand)") {
+                    forehandCount += 1
+                    break
+                } else if token.contains("(Backhand)") {
+                    backhandCount += 1
+                    break
+                }
+            }
+        }
+        
+        return (forehandCount, backhandCount)
     }
     
     var body: some View {
@@ -136,9 +223,9 @@ struct QuickLoggingView: View {
                 resetInput()
             }
         }
+        .id(currentGame?.pointCount ?? 0) // Force view update when points are added (for counter updates)
         .onChange(of: isVoiceInputActive) { _, isActive in
             if isActive {
-                // TODO: Start voice recognition
                 simulateVoiceInput()
             }
         }
@@ -153,9 +240,6 @@ struct QuickLoggingView: View {
         selectedServe != nil || selectedReceive != nil || !selectedRallies.isEmpty
     }
     
-    // MARK: - Preview Header Logic
-    
-    /// Determines if the right side is serving (opponent when not swapped, player when swapped)
     private var rightSideServes: Bool {
         shouldSwapPlayers ? isPlayerServing : !isPlayerServing
     }
@@ -300,23 +384,16 @@ struct QuickLoggingView: View {
         }
     }
     
-    /// Determines which side (left/right) the next rally hitter is on
+    // MARK: - Rally Mode
+    
     private var nextRallyHitterSide: HorizontalAlignment {
-        // After serve+receive, rallies start with the server:
-        // Rally 1: server hits (person who served)
-        // Rally 2: non-server hits (person who received)
-        // Rally 3: server hits
-        // etc.
-        // So: even count (0, 2, 4...) = server hits next, odd count (1, 3, 5...) = non-server hits next
-        
+        // After serve+receive, rallies alternate: server, non-server, server, etc.
         let isServerHitting = selectedRallies.count % 2 == 0
         let leftIsServing = shouldSwapPlayers ? !isPlayerServing : isPlayerServing
         
         if isServerHitting {
-            // Server hits next - same side as server
             return leftIsServing ? .leading : .trailing
         } else {
-            // Non-server hits next - opposite side of server
             return leftIsServing ? .trailing : .leading
         }
     }
@@ -385,6 +462,8 @@ struct QuickLoggingView: View {
         .padding(.top, -12)
     }
     
+    // MARK: - Post-Game Content Views
+    
     private var gridColumns: [GridItem] {
         [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
     }
@@ -449,8 +528,10 @@ struct QuickLoggingView: View {
         .background(Color.secondary.opacity(0.03))
     }
     
+    // MARK: - Post-Game Outcomes View
+    
     private var outcomesRow: some View {
-        HStack(spacing: 8) {
+        LazyVGrid(columns: outcomeGridColumns, spacing: 8) {
             ForEach(orderedOutcomes, id: \.self) { outcome in
                 PostGameOutcomeButton(
                     outcome: outcome,
@@ -462,42 +543,81 @@ struct QuickLoggingView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 4)
-        .padding(.bottom, 40) // Extra padding to account for tab bar
+        .padding(.bottom, 40)
         .background(Color.secondary.opacity(0.05))
     }
+    
+    private var outcomeGridColumns: [GridItem] {
+        [
+            GridItem(.flexible(), spacing: 8),
+            GridItem(.flexible(minimum: 120), spacing: 8), // Wider middle column
+            GridItem(.flexible(), spacing: 8)
+        ]
+    }
+    
+    // MARK: - In-Game Outcomes View
     
     private var inGameOutcomesView: some View {
         ScrollView {
             VStack(spacing: 10) {
                 ForEach(inGameOrderedOutcomes, id: \.self) { outcome in
-                    InGameOutcomeButton(
-                        outcome: outcome,
-                        isSelected: selectedOutcome == outcome,
-                        onTap: {
-                            selectedOutcome = outcome
-                        },
-                        onDrag: { strokeSide in
-                            submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
-                        }
-                    )
-                    .frame(maxWidth: 200) // Narrower width for taller buttons
+                    inGameOutcomeButtonView(for: outcome)
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
             .padding(.top, 20)
-            .padding(.bottom, 40) // Extra padding to account for tab bar
+            .padding(.bottom, 40)
         }
         .background(Color.secondary.opacity(0.05))
     }
     
+    @ViewBuilder
+    private func inGameOutcomeButtonView(for outcome: Outcome) -> some View {
+        if outcome == .myWinner || outcome == .iMissed {
+            // Add counters for Cho-le and Missed
+            let counts = countPointsBySide(outcome: outcome)
+            HStack(spacing: 8) {
+                strokeSideCounter(count: counts.backhand)
+                
+                inGameOutcomeButton(for: outcome)
+                    .frame(maxWidth: 200)
+                
+                strokeSideCounter(count: counts.forehand)
+            }
+        } else {
+            inGameOutcomeButton(for: outcome)
+                .frame(maxWidth: 200)
+        }
+    }
+    
+    private func inGameOutcomeButton(for outcome: Outcome) -> some View {
+        InGameOutcomeButton(
+            outcome: outcome,
+            isSelected: selectedOutcome == outcome,
+            onTap: {
+                selectedOutcome = outcome
+            },
+            onDrag: { strokeSide in
+                submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
+            }
+        )
+    }
+    
+    private func strokeSideCounter(count: Int) -> some View {
+        Text("\(count)")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.secondary)
+            .frame(minWidth: 24)
+    }
+    
+    // MARK: - Helper Methods
+    
     private func addRally(_ rally: RallyType) {
-        // Always append the rally type to allow continuous rally selection
         selectedRallies.append(rally)
     }
     
     private func simulateVoiceInput() {
-        // Simulate selecting a serve and receive
         if selectedServe == nil {
             selectedServe = ServeType.allCases.randomElement()
         } else if selectedReceive == nil {
@@ -516,80 +636,6 @@ struct QuickLoggingView: View {
             resetInput()
             showingConfirmation = false
         }
-    }
-    
-    private func submitAceServe(serve: ServeType) {
-        // Double-tap serve: whoever is serving gets the point (ace serve)
-        let outcome: Outcome = isPlayerServing ? .myWinner : .iMissed
-        let point = Point(
-            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
-            outcome: outcome,
-            serveType: serve.rawValue
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: outcome.emoji)
-    }
-    
-    private func submitServeOnlyPoint(serve: ServeType, outcome: Outcome) {
-        // Serve-only point: serve selected then outcome selected (records serve in history)
-        let point = Point(
-            strokeTokens: [serve.rawValue], // Store actual serve type (SS, SL, DS, etc.)
-            outcome: outcome,
-            serveType: serve.rawValue
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: outcome.emoji)
-    }
-    
-    private func submitGoodReceive(receive: ReceiveType) {
-        // Good receive: receive token only, point won immediately by whoever is receiving
-        // If player is receiving (opponent is serving): point goes to player (.myWinner)
-        // If opponent is receiving (player is serving): point goes to opponent (.iMissed)
-        let outcome: Outcome = isPlayerServing ? .iMissed : .myWinner
-        let point = Point(
-            strokeTokens: [receive.fruitName], // Store fruit name (e.g., "Banana")
-            outcome: outcome,
-            serveType: nil,
-            receiveType: receive.rawValue
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: outcome.emoji)
-    }
-    
-    private func submitDirectOutcome(outcome: Outcome, strokeSide: StrokeSide? = nil) {
-        // Direct outcome selection - point ends immediately
-        // Store original outcome for analytics, Game.swift handles scoring correctly
-        var strokeTokens: [String] = []
-        
-        // Add stroke side info if provided (for in-game mode with drag gesture)
-        if let side = strokeSide {
-            strokeTokens.append("\(outcome.displayName(for: selectedLanguage)) (\(side.displayName))")
-        }
-        
-        let point = Point(
-            strokeTokens: strokeTokens,
-            outcome: outcome,
-            serveType: nil
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: outcome.emoji)
-    }
-    
-    private func submitPoint(serve: ServeType, receive: ReceiveType, rallies: [RallyType], outcome: Outcome) {
-        // Store stroke tokens: serve type (SS, SL, DS, etc.), fruit name (Banana, etc.), animal name (Dragon, etc.)
-        var strokeTokens: [String] = [serve.rawValue, receive.fruitName] // Serve then receive (fruit name)
-        strokeTokens.append(contentsOf: rallies.map { $0.animalName }) // Add rally animal names
-        
-        // Store original outcome - Game.swift handles scoring correctly
-        let point = Point(
-            strokeTokens: strokeTokens,
-            outcome: outcome,
-            serveType: serve.rawValue,
-            receiveType: receive.rawValue,
-            rallyTypes: rallies.map { $0.rawValue }
-        )
-        onPointLogged(point)
-        showConfirmation(emoji: outcome.emoji)
     }
     
     private func resetInput() {

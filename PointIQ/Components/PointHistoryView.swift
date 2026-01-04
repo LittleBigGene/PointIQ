@@ -334,9 +334,15 @@ struct PointHistoryRow: View {
     let opponentServed: Bool
     
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    @AppStorage("legendMode") private var isPostGameMode: Bool = true
     
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // Determine if player was serving (for in-game mode emoji display)
+    private var playerWasServing: Bool {
+        !opponentServed
     }
     
     init(point: Point, reverseOrder: Bool = false, opponentServed: Bool = false) {
@@ -392,6 +398,12 @@ struct PointHistoryRow: View {
                 } else if let pointData = pointData {
                     StrokeSequenceView(pointData: pointData, reverseOrder: reverseOrder, opponentServed: opponentServed)
                         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // Serve/Receive emoji indicator (for in-game mode)
+                if !isPostGameMode {
+                    Text(playerWasServing ? "🫴" : "👁️")
+                        .font(.system(size: 16))
                 }
                 
                 // Stroke side indicator (for in-game mode)
