@@ -59,13 +59,13 @@ struct MainTabView: View {
                 .tabItem {
                     Label(profileTabText(for: selectedLanguage), systemImage: "person.circle")
                 }
-            HistoryView()
-                .tabItem {
-                    Label(historyTabText(for: selectedLanguage), systemImage: "clock")
-                }
             LegendView()
                 .tabItem {
                     Label(legendTabText(for: selectedLanguage), systemImage: "info.circle")
+                }
+            HistoryView()
+                .tabItem {
+                    Label(historyTabText(for: selectedLanguage), systemImage: "clock")
                 }
         }
     }

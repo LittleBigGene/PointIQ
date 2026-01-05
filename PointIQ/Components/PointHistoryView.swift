@@ -333,6 +333,18 @@ struct PointHistoryRow: View {
     let reverseOrder: Bool
     let opponentServed: Bool
     
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // Determine if player was serving (for in-game mode emoji display)
+    private var playerWasServing: Bool {
+        !opponentServed
+    }
+    
     init(point: Point, reverseOrder: Bool = false, opponentServed: Bool = false) {
         self.point = point
         self.pointData = nil
@@ -351,6 +363,31 @@ struct PointHistoryRow: View {
         point?.outcome ?? pointData?.outcomeValue
     }
     
+    // Extract stroke side from strokeTokens (for in-game mode)
+    private var strokeSide: String? {
+        let strokeTokens = point?.strokeTokens ?? pointData?.strokeTokens ?? []
+        // Look for tokens containing "(Forehand)" or "(Backhand)"
+        for token in strokeTokens {
+            if token.contains("(Forehand)") {
+                return strokeSideText(isForehand: true)
+            } else if token.contains("(Backhand)") {
+                return strokeSideText(isForehand: false)
+            }
+        }
+        return nil
+    }
+    
+    private func strokeSideText(isForehand: Bool) -> String {
+        switch selectedLanguage {
+        case .english:
+            return isForehand ? "Forehand" : "Backhand"
+        case .japanese:
+            return isForehand ? "フォアハンド" : "バックハンド"
+        case .chinese:
+            return isForehand ? "正手" : "反手"
+        }
+    }
+    
     var body: some View {
         if point != nil || pointData != nil {
             HStack(spacing: 12) {
@@ -361,6 +398,23 @@ struct PointHistoryRow: View {
                 } else if let pointData = pointData {
                     StrokeSequenceView(pointData: pointData, reverseOrder: reverseOrder, opponentServed: opponentServed)
                         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // Serve/Receive emoji indicator (for in-game mode)
+                if !isPostGameMode {
+                    Text(playerWasServing ? "🫴" : "👁️")
+                        .font(.system(size: 16))
+                }
+                
+                // Stroke side indicator (for in-game mode)
+                if let side = strokeSide {
+                    Text(side)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
                 }
                 
                 // Outcome emoji and displayName together on the right
