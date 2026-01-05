@@ -167,7 +167,7 @@ class SupabaseService {
         forehandRubber: String,
         backhandRubber: String,
         eloRating: Int?,
-        clubName: String
+        homeClub: String
     ) -> PlayerProfileInsert {
         PlayerProfileInsert(
             userId: nil, // For future multi-user support
@@ -179,7 +179,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             createdAt: Self.currentTimestamp
         )
     }
@@ -195,7 +195,7 @@ class SupabaseService {
         forehandRubber: String,
         backhandRubber: String,
         eloRating: Int?,
-        clubName: String,
+        homeClub: String,
         onConflict: String,
         returnId: Bool = false
     ) async throws -> String? {
@@ -209,7 +209,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName
+            homeClub: homeClub
         )
         
         // Check if profile exists first (to avoid deferrable constraint issues)
@@ -249,7 +249,7 @@ class SupabaseService {
                 forehandRubber: forehandRubber,
                 backhandRubber: backhandRubber,
                 eloRating: eloRating,
-                clubName: clubName
+                homeClub: homeClub
             )
             
             try await client.from(Table.playerProfiles)
@@ -586,7 +586,7 @@ class SupabaseService {
         forehandRubber: String = "",
         backhandRubber: String = "",
         eloRating: Int? = nil,
-        clubName: String = ""
+        homeClub: String = ""
     ) async throws {
         #if canImport(Supabase)
         _ = try await saveProfile(
@@ -598,7 +598,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             onConflict: "user_id,profile_type",
             returnId: false
         )
@@ -617,7 +617,7 @@ class SupabaseService {
         forehandRubber: String = "",
         backhandRubber: String = "",
         eloRating: Int? = nil,
-        clubName: String = ""
+        homeClub: String = ""
     ) async throws -> String {
         #if canImport(Supabase)
         guard let profileId = try await saveProfile(
@@ -629,7 +629,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             onConflict: "user_id,profile_type,name",
             returnId: true
         ) else {
@@ -815,7 +815,7 @@ private struct PlayerProfileInsert: Encodable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     let createdAt: String
     
     enum CodingKeys: String, CodingKey {
@@ -828,7 +828,7 @@ private struct PlayerProfileInsert: Encodable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
         case createdAt = "created_at"
     }
 }
@@ -840,7 +840,7 @@ private struct PlayerProfileUpdate: Encodable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     
     enum CodingKeys: String, CodingKey {
         case grip
@@ -849,7 +849,7 @@ private struct PlayerProfileUpdate: Encodable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
     }
 }
 
@@ -864,7 +864,7 @@ private struct PlayerProfileRow: Codable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     let createdAt: String
     let updatedAt: String?
     let deletedAt: String?
@@ -880,7 +880,7 @@ private struct PlayerProfileRow: Codable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case deletedAt = "deleted_at"

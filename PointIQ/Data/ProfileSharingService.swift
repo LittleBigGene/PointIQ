@@ -407,6 +407,6 @@ struct PlayerProfile: Codable, Equatable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: String
-    let clubName: String
+    let homeClub: String
 }
 

@@ -31,7 +31,7 @@ struct ProfileView: View {
     @AppStorage("playerForehandRubber") private var playerForehandRubber: String = ""
     @AppStorage("playerBackhandRubber") private var playerBackhandRubber: String = ""
     @AppStorage("playerEloRating") private var playerEloRating: Int = 1000 // Default for unrated players
-    @AppStorage("playerClubName") private var playerClubName: String = ""
+    @AppStorage("playerHomeClub") private var playerHomeClub: String = ""
     
     @AppStorage("opponentName") private var opponentName: String = ""
     @AppStorage("opponentGrip") private var opponentGrip: String = GripType.shakehand.rawValue
@@ -40,7 +40,7 @@ struct ProfileView: View {
     @AppStorage("opponentForehandRubber") private var opponentForehandRubber: String = ""
     @AppStorage("opponentBackhandRubber") private var opponentBackhandRubber: String = ""
     @AppStorage("opponentEloRating") private var opponentEloRating: Int = 1000 // Default for unrated players
-    @AppStorage("opponentClubName") private var opponentClubName: String = ""
+    @AppStorage("opponentHomeClub") private var opponentHomeClub: String = ""
     
     @AppStorage("playerProfileExpanded") private var playerProfileExpanded: Bool = true
     @AppStorage("opponentProfileExpanded") private var opponentProfileExpanded: Bool = true
@@ -74,7 +74,7 @@ struct ProfileView: View {
                             playerForehandRubber: $playerForehandRubber,
                             playerBackhandRubber: $playerBackhandRubber,
                             playerEloRating: $playerEloRating,
-                            playerClubName: $playerClubName
+                            playerHomeClub: $playerHomeClub
                         )
                         .padding(.top, 6)
                     }
@@ -90,7 +90,7 @@ struct ProfileView: View {
                             opponentForehandRubber: $opponentForehandRubber,
                             opponentBackhandRubber: $opponentBackhandRubber,
                             opponentEloRating: $opponentEloRating,
-                            opponentClubName: $opponentClubName
+                            opponentHomeClub: $opponentHomeClub
                         )
                         .padding(.top, 6)
                     }
@@ -150,7 +150,7 @@ struct ProfileView: View {
             forehandRubber: playerForehandRubber,
             backhandRubber: playerBackhandRubber,
             eloRating: eloRatingString,
-            clubName: playerClubName
+            homeClub: playerHomeClub
         )
         sharingService.sendProfile(profile, to: peerID)
     }
@@ -171,7 +171,7 @@ struct ProfileView: View {
         } else {
             opponentEloRating = 1000 // Default for unrated players
         }
-        opponentClubName = profile.clubName
+        opponentHomeClub = profile.homeClub
         
         sharingService.receivedProfile = nil
         sharingService.receivedProfileFromPeer = nil
@@ -291,7 +291,7 @@ struct PlayerProfileSection: View {
     @Binding var playerForehandRubber: String
     @Binding var playerBackhandRubber: String
     @Binding var playerEloRating: Int
-    @Binding var playerClubName: String
+    @Binding var playerHomeClub: String
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -350,7 +350,7 @@ struct PlayerProfileSection: View {
                     )
                 }
                 
-                // Fourth row: Elo Rating and Club Name
+                // Fourth row: Elo Rating and Home Club
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible())
@@ -361,9 +361,9 @@ struct PlayerProfileSection: View {
                     )
                     
                     ProfileField(
-                        label: "Club Name",
-                        value: $playerClubName,
-                        placeholder: "Enter club name"
+                        label: "Home Club",
+                        value: $playerHomeClub,
+                        placeholder: "Enter home club"
                     )
                 }
             }
@@ -380,7 +380,7 @@ struct OpponentProfileSection: View {
     @Binding var opponentForehandRubber: String
     @Binding var opponentBackhandRubber: String
     @Binding var opponentEloRating: Int
-    @Binding var opponentClubName: String
+    @Binding var opponentHomeClub: String
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -439,7 +439,7 @@ struct OpponentProfileSection: View {
                     )
                 }
                 
-                // Fourth row: Elo Rating and Club Name
+                // Fourth row: Elo Rating and Home Club
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible())
@@ -450,9 +450,9 @@ struct OpponentProfileSection: View {
                     )
                     
                     ProfileField(
-                        label: "Club Name",
-                        value: $opponentClubName,
-                        placeholder: "Enter club name"
+                        label: "Home Club",
+                        value: $opponentHomeClub,
+                        placeholder: "Enter home club"
                     )
                 }
             }

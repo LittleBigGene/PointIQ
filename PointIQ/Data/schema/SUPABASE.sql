@@ -62,7 +62,7 @@ CREATE TABLE player_profiles (
     forehand_rubber TEXT DEFAULT '',
     backhand_rubber TEXT DEFAULT '',
     elo_rating INTEGER DEFAULT 1000, -- 4-digit Elo rating (1000-9999), default 1000 for unrated players
-    club_name TEXT DEFAULT '',
+    home_club TEXT DEFAULT '',
     
     -- Future-proofing fields
     metadata JSONB DEFAULT '{}'::jsonb, -- Flexible storage for future features
