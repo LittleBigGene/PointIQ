@@ -27,7 +27,7 @@ struct QuickLoggingView: View {
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
-    @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    @AppStorage("legendMode") private var isPostGameMode: Bool = false
     @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     
     private var selectedLanguage: Language {

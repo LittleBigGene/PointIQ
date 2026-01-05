@@ -15,7 +15,7 @@ struct LegendView: View {
     @AppStorage("legendGameRulesExpanded") private var isGameRulesExpanded: Bool = true
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     @AppStorage("pointsToWinGame") private var pointsToWinGame: Int = 11
-    @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    @AppStorage("legendMode") private var isPostGameMode: Bool = false
     @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     
     private var selectedLanguage: Language {
