@@ -84,9 +84,9 @@ struct ContentView: View {
     
     private func resetMatchMessageText(for language: Language) -> String {
         switch language {
-        case .english: return "Choose an option:\n\n• Add to History: Upload match to cloud, then reset\n• Reset: Delete match locally and start new"
-        case .japanese: return "オプションを選択:\n\n• 履歴に追加: クラウドにアップロードしてからリセット\n• リセット: ローカルで削除して新規開始"
-        case .chinese: return "選擇選項:\n\n• 加入歷史: 上傳比賽到雲端，然後重置\n• 重置: 本地刪除並開始新比賽"
+        case .english: return "Are you sure you want to reset the match? This will delete the current match locally and start a new one."
+        case .japanese: return "試合をリセットしてもよろしいですか？現在の試合がローカルで削除され、新しい試合が開始されます。"
+        case .chinese: return "確定要重置比賽嗎？這將刪除當前比賽並開始新的比賽。"
         }
     }
     
@@ -207,9 +207,6 @@ struct ContentView: View {
         }
         .alert(resetMatchText(for: selectedLanguage), isPresented: $showResetMatchConfirmation) {
             Button(cancelText(for: selectedLanguage), role: .cancel) { }
-            Button(addToHistoryText(for: selectedLanguage), role: .none) {
-                shareAndResetMatch()
-            }
             Button(resetText(for: selectedLanguage), role: .destructive) {
                 resetMatch()
             }
