@@ -187,6 +187,14 @@ struct QuickLoggingView: View {
         return (forehandCount, backhandCount)
     }
     
+    /// Counts total points for a given outcome
+    private func countPoints(outcome: Outcome) -> Int {
+        guard let game = currentGame, let points = game.points else {
+            return 0
+        }
+        return points.filter { $0.outcome == outcome }.count
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             previewHeader
@@ -548,26 +556,49 @@ struct QuickLoggingView: View {
     }
     
     private var outcomeGridColumns: [GridItem] {
-        [
-            GridItem(.flexible(), spacing: 8),
-            GridItem(.flexible(minimum: 120), spacing: 8), // Wider middle column
-            GridItem(.flexible(), spacing: 8)
-        ]
+        // 5 columns to fit all outcome buttons in one row
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
     }
     
     // MARK: - In-Game Outcomes View
     
+    private struct InGameLayout {
+        static let vStackSpacing: CGFloat = 10
+        static let counterSpacing: CGFloat = 36
+        static let compactButtonSpacing: CGFloat = 10
+        static let dividerPadding: CGFloat = 10
+        static let horizontalPadding: CGFloat = 20
+        static let topPadding: CGFloat = 20
+        static let bottomPadding: CGFloat = 40
+    }
+    
     private var inGameOutcomesView: some View {
         ScrollView {
-            VStack(spacing: 10) {
-                ForEach(inGameOrderedOutcomes, id: \.self) { outcome in
-                    inGameOutcomeButtonView(for: outcome)
+            VStack(spacing: InGameLayout.vStackSpacing) {
+                // First row: Cho-le
+                inGameOutcomeButtonView(for: .myWinner)
+                
+                // Second row: Missed
+                inGameOutcomeButtonView(for: .iMissed)
+                
+                // Divider after Missed
+                Divider()
+                    .padding(.vertical, InGameLayout.dividerPadding)
+                
+                // Third row: 4 columns - Opp Err counter, Opp Err button, Net/Edge button, Net/Edge counter
+                HStack(alignment: .center, spacing: InGameLayout.compactButtonSpacing) {
+                    strokeSideCounter(count: countPoints(outcome: .opponentError))
+                    inGameOutcomeButton(for: .opponentError, isCompact: true)
+                        .frame(maxWidth: .infinity)
+                    inGameOutcomeButton(for: .unlucky, isCompact: true)
+                        .frame(maxWidth: .infinity)
+                    strokeSideCounter(count: countPoints(outcome: .unlucky))
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 40)
+            .padding(.horizontal, InGameLayout.horizontalPadding)
+            .padding(.top, InGameLayout.topPadding)
+            .padding(.bottom, InGameLayout.bottomPadding)
         }
         .background(Color.secondary.opacity(0.05))
     }
@@ -577,21 +608,17 @@ struct QuickLoggingView: View {
         if outcome == .myWinner || outcome == .iMissed {
             // Add counters for Cho-le and Missed
             let counts = countPointsBySide(outcome: outcome)
-            HStack(spacing: 8) {
+            HStack(alignment: .center, spacing: InGameLayout.counterSpacing) {
                 strokeSideCounter(count: counts.backhand)
-                
                 inGameOutcomeButton(for: outcome)
-                    .frame(maxWidth: 200)
-                
                 strokeSideCounter(count: counts.forehand)
             }
         } else {
             inGameOutcomeButton(for: outcome)
-                .frame(maxWidth: 200)
         }
     }
     
-    private func inGameOutcomeButton(for outcome: Outcome) -> some View {
+    private func inGameOutcomeButton(for outcome: Outcome, isCompact: Bool = false) -> some View {
         InGameOutcomeButton(
             outcome: outcome,
             isSelected: selectedOutcome == outcome,
@@ -600,7 +627,8 @@ struct QuickLoggingView: View {
             },
             onDrag: { strokeSide in
                 submitDirectOutcome(outcome: outcome, strokeSide: strokeSide)
-            }
+            },
+            isCompact: isCompact
         )
     }
     
@@ -608,7 +636,7 @@ struct QuickLoggingView: View {
         Text("\(count)")
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(.secondary)
-            .frame(minWidth: 24)
+            .frame(minWidth: 24, alignment: .center)
     }
     
     // MARK: - Helper Methods

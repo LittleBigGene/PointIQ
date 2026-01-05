@@ -115,13 +115,50 @@ struct InGameOutcomeButton: View {
     let isSelected: Bool
     let onTap: () -> Void
     let onDrag: (StrokeSide) -> Void
+    let isCompact: Bool
     
     @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     @State private var dragOffset: CGSize = .zero
     @State private var isDragging: Bool = false
-    @State private var dragHandled: Bool = false // Track if drag was handled to prevent double submission
+    @State private var dragHandled: Bool = false
     
+    // MARK: - Constants
+    private struct Layout {
+        static let regularSize = (width: CGFloat(200), height: CGFloat(90))
+        static let compactAspectRatio: CGFloat = 0.85
+        static let cornerRadius: CGFloat = 10
+        static let borderWidth: CGFloat = 2
+    }
+    
+    private struct Typography {
+        static let emojiSize: CGFloat = 20
+        static let textSize: CGFloat = 11
+        static let dragHintEmojiSize: CGFloat = 8
+        static let dragHintTextSize: CGFloat = 10
+    }
+    
+    private struct Spacing {
+        static let vStack: CGFloat = 6
+        static let padding: CGFloat = 12
+        static let dragHintHStack: CGFloat = 4
+        static let dragHintTopPadding: CGFloat = 2
+    }
+    
+    private struct DragConfig {
+        static let minimumDistance: CGFloat = 10
+        static let threshold: CGFloat = 50
+        static let visualFeedbackMultiplier: CGFloat = 0.2
+        static let dragOpacity: Double = 0.85
+        static let dragScale: CGFloat = 0.97
+    }
+    
+    private struct Animation {
+        static let springResponse: Double = 0.3
+        static let springDamping: Double = 0.7
+    }
+    
+    // MARK: - Computed Properties
     private var selectedLanguage: Language {
         Language(rawValue: selectedLanguageRaw) ?? .english
     }
@@ -130,14 +167,38 @@ struct InGameOutcomeButton: View {
         playerHandedness == "Right-handed"
     }
     
+    private var buttonSize: (width: CGFloat, height: CGFloat)? {
+        isCompact ? nil : Layout.regularSize
+    }
+    
+    private var buttonAspectRatio: CGFloat? {
+        isCompact ? Layout.compactAspectRatio : nil
+    }
+    
+    // MARK: - Drag Gesture Helpers
+    /// Determines stroke side from drag gesture based on player handedness
+    /// Right-handed: drag right = forehand, drag left = backhand
+    /// Left-handed: drag right = backhand, drag left = forehand
     private var strokeSideFromDrag: StrokeSide? {
-        guard abs(dragOffset.width) > 50 else { return nil } // Minimum drag distance (50pt for intentional gesture)
+        guard abs(dragOffset.width) > DragConfig.threshold else { return nil }
+        
+        let isDraggingRight = dragOffset.width > 0
         if isRightHanded {
-            // Right-handed: drag left = backhand, drag right = forehand
-            return dragOffset.width < 0 ? .backhand : .forehand
+            return isDraggingRight ? .forehand : .backhand
         } else {
-            // Left-handed: drag left = forehand, drag right = backhand
-            return dragOffset.width < 0 ? .forehand : .backhand
+            return isDraggingRight ? .backhand : .forehand
+        }
+    }
+    
+    /// Returns arrow direction based on stroke side and player handedness
+    /// Right-handed: forehand = right side, backhand = left side
+    /// Left-handed: forehand = left side, backhand = right side
+    private func arrowDirection(for side: StrokeSide) -> String {
+        let isForehand = side == .forehand
+        if isRightHanded {
+            return isForehand ? "arrow.right" : "arrow.left"
+        } else {
+            return isForehand ? "arrow.left" : "arrow.right"
         }
     }
     
@@ -149,73 +210,89 @@ struct InGameOutcomeButton: View {
                 onTap()
             }
         }) {
-            VStack(spacing: 6) {
+            VStack(spacing: Spacing.vStack) {
                 Text(outcome.emoji)
-                    .font(.system(size: 20))
+                    .font(.system(size: Typography.emojiSize))
                 Text(outcome.displayName(for: selectedLanguage))
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: Typography.textSize, weight: .semibold))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.8)
                 
-                // Show drag hint when dragging
+                // Drag hint indicator
                 if isDragging, let side = strokeSideFromDrag {
-                    HStack(spacing: 4) {
-                        Image(systemName: dragOffset.width < 0 ? "arrow.left" : "arrow.right")
-                            .font(.system(size: 8))
-                        Text(side.displayName)
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    .foregroundColor(.accentColor)
-                    .padding(.top, 2)
-                    .transition(.opacity.combined(with: .scale))
+                    dragHintView(for: side)
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(minHeight: 70)
-            .aspectRatio(0.6, contentMode: .fit)
-            .padding(12)
+            .modifier(CompactButtonFrameModifier(
+                buttonSize: buttonSize,
+                aspectRatio: buttonAspectRatio
+            ))
+            .padding(Spacing.padding)
             .background(
                 isSelected 
                     ? Color.accentColor.opacity(0.2) 
                     : outcome.backgroundColor
             )
-            .cornerRadius(10)
+            .cornerRadius(Layout.cornerRadius)
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Layout.cornerRadius)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: Layout.borderWidth)
             )
-            .offset(x: dragOffset.width * 0.2) // Visual feedback during drag (reduced multiplier for smoother feel)
-            .opacity(isDragging ? 0.85 : 1.0)
-            .scaleEffect(isDragging ? 0.97 : 1.0)
+            .offset(x: dragOffset.width * DragConfig.visualFeedbackMultiplier)
+            .opacity(isDragging ? DragConfig.dragOpacity : 1.0)
+            .scaleEffect(isDragging ? DragConfig.dragScale : 1.0)
         }
         .buttonStyle(.plain)
-        .highPriorityGesture(
-            DragGesture(minimumDistance: 10)
-                .onChanged { value in
-                    if !isDragging {
-                        isDragging = true
-                        dragHandled = false // Reset flag when starting new drag
-                    }
-                    dragOffset = value.translation
+        .highPriorityGesture(dragGesture)
+    }
+    
+    // MARK: - View Builders
+    @ViewBuilder
+    private func dragHintView(for side: StrokeSide) -> some View {
+        HStack(spacing: Spacing.dragHintHStack) {
+            Image(systemName: arrowDirection(for: side))
+                .font(.system(size: Typography.dragHintEmojiSize))
+            Text(side.displayName)
+                .font(.system(size: Typography.dragHintTextSize, weight: .medium))
+        }
+        .foregroundColor(.accentColor)
+        .padding(.top, Spacing.dragHintTopPadding)
+        .transition(.opacity.combined(with: .scale))
+    }
+    
+    // MARK: - Gestures
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: DragConfig.minimumDistance)
+            .onChanged { value in
+                if !isDragging {
+                    isDragging = true
+                    dragHandled = false
                 }
-                .onEnded { value in
-                    if let side = strokeSideFromDrag {
-                        // Drag completed - submit with stroke side
-                        dragHandled = true // Mark as handled to prevent button tap
-                        onDrag(side)
-                    } else {
-                        // Drag was too small - treat as tap (don't mark as handled)
-                        dragHandled = false
-                        onTap()
-                    }
-                    // Reset drag state
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        dragOffset = .zero
-                        isDragging = false
-                    }
-                }
-        )
+                dragOffset = value.translation
+            }
+            .onEnded { _ in
+                handleDragEnd()
+            }
+    }
+    
+    private func handleDragEnd() {
+        if let side = strokeSideFromDrag {
+            dragHandled = true
+            onDrag(side)
+        } else {
+            dragHandled = false
+            onTap()
+        }
+        
+        withAnimation(.spring(
+            response: Animation.springResponse,
+            dampingFraction: Animation.springDamping
+        )) {
+            dragOffset = .zero
+            isDragging = false
+        }
     }
 }
 
@@ -229,6 +306,24 @@ private struct OutcomeButtonFrameModifier: ViewModifier {
                 content.frame(minHeight: minHeight)
             } else if let aspectRatio = style.aspectRatio {
                 content.aspectRatio(aspectRatio, contentMode: .fit)
+            } else {
+                content
+            }
+        }
+    }
+}
+
+// MARK: - Compact Button Frame Modifier
+private struct CompactButtonFrameModifier: ViewModifier {
+    let buttonSize: (width: CGFloat, height: CGFloat)?
+    let aspectRatio: CGFloat?
+    
+    func body(content: Content) -> some View {
+        Group {
+            if let size = buttonSize {
+                content.frame(width: size.width, height: size.height)
+            } else if let ratio = aspectRatio {
+                content.aspectRatio(ratio, contentMode: .fit)
             } else {
                 content
             }

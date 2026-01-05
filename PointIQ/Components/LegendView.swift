@@ -114,12 +114,12 @@ struct LegendView: View {
     }
     
     // Outcomes to display based on mode
-    // In in-game mode, exclude opponentError and myError
+    // In in-game mode, exclude only myError (opponentError is shown)
     private var displayedOutcomes: [Outcome] {
         if isPostGameMode {
             return Outcome.allCases
         } else {
-            return Outcome.allCases.filter { $0 != .opponentError && $0 != .myError }
+            return Outcome.allCases.filter { $0 != .myError }
         }
     }
     
