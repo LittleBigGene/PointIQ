@@ -47,34 +47,35 @@ struct HistoryView: View {
 struct StatisticsSection: View {
     let matches: [Match]
     
-    private var totalMatches: Int {
-        matches.count
+    // Only include completed matches (those with an endDate)
+    private var completedMatches: [Match] {
+        matches.filter { $0.endDate != nil }
     }
     
-    private var completedMatches: Int {
-        matches.filter { $0.endDate != nil }.count
+    private var totalMatches: Int {
+        completedMatches.count
     }
     
     private var totalGamesWon: Int {
-        matches.reduce(0) { $0 + $1.gamesWon }
+        completedMatches.reduce(0) { $0 + $1.gamesWon }
     }
     
     private var totalGamesLost: Int {
-        matches.reduce(0) { $0 + $1.gamesLost }
+        completedMatches.reduce(0) { $0 + $1.gamesLost }
     }
     
     private var totalPointsWon: Int {
-        matches.reduce(0) { $0 + $1.pointsWon }
+        completedMatches.reduce(0) { $0 + $1.pointsWon }
     }
     
     private var totalPointsLost: Int {
-        matches.reduce(0) { $0 + $1.pointsLost }
+        completedMatches.reduce(0) { $0 + $1.pointsLost }
     }
     
     private var matchWinRate: Double {
-        guard completedMatches > 0 else { return 0 }
-        let wins = matches.filter { $0.winner == true }.count
-        return Double(wins) / Double(completedMatches) * 100
+        guard totalMatches > 0 else { return 0 }
+        let wins = completedMatches.filter { $0.winner == true }.count
+        return Double(wins) / Double(totalMatches) * 100
     }
     
     private var gameWinRate: Double {
@@ -103,14 +104,14 @@ struct StatisticsSection: View {
                 StatCard(
                     title: "Matches",
                     value: "\(totalMatches)",
-                    subtitle: "\(completedMatches) completed",
+                    subtitle: "\(totalMatches) completed",
                     color: .blue
                 )
                 
                 StatCard(
                     title: "Match Win Rate",
                     value: String(format: "%.1f%%", matchWinRate),
-                    subtitle: completedMatches > 0 ? "\(matches.filter { $0.winner == true }.count)W - \(matches.filter { $0.winner == false }.count)L" : "No matches",
+                    subtitle: totalMatches > 0 ? "\(completedMatches.filter { $0.winner == true }.count)W - \(completedMatches.filter { $0.winner == false }.count)L" : "No matches",
                     color: .green
                 )
                 
@@ -181,7 +182,9 @@ struct RecentMatchesSection: View {
     let matches: [Match]
     
     private var recentMatches: [Match] {
-        Array(matches.prefix(10))
+        // Only include completed matches (those with an endDate)
+        let completedMatches = matches.filter { $0.endDate != nil }
+        return Array(completedMatches.prefix(10))
     }
     
     var body: some View {
@@ -207,8 +210,8 @@ struct RecentMatchesSection: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(recentMatches) { match in
-                    MatchRow(match: match)
+                ForEach(Array(recentMatches.enumerated()), id: \.element.id) { index, match in
+                    MatchRow(match: match, matchNumber: index)
                 }
             }
         }
@@ -217,6 +220,7 @@ struct RecentMatchesSection: View {
 
 struct MatchRow: View {
     let match: Match
+    let matchNumber: Int
     
     private var matchDuration: String {
         guard let endDate = match.endDate else {
@@ -246,10 +250,10 @@ struct MatchRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if let opponentName = match.opponentName, !opponentName.isEmpty {
-                        Text(opponentName)
+                        Text("Match \(matchNumber): \(opponentName)")
                             .font(.headline)
                     } else {
-                        Text("Match")
+                        Text("Match \(matchNumber)")
                             .font(.headline)
                     }
                     
