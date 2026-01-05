@@ -81,21 +81,21 @@ struct LegendView: View {
         switch language {
         case .english:
             if isRightHanded {
-                return "Since you are right-handed: Drag left for Backhand, drag right for Forehand"
+                return "In-game focuses on your outcome only. Since you are right-handed: Drag left for Backhand, drag right for Forehand"
             } else {
-                return "Since you are left-handed: Drag left for Forehand, drag right for Backhand"
+                return "In-game focuses on your outcome only. Since you are left-handed: Drag left for Forehand, drag right for Backhand"
             }
         case .japanese:
             if isRightHanded {
-                return "右利きなので: 左にドラッグでバックハンド、右にドラッグでフォアハンド"
+                return "ゲーム中は自分の結果を集中しましょう。右利きなので: 左にドラッグでバックハンド、右にドラッグでフォアハンド"
             } else {
-                return "左利きなので: 左にドラッグでフォアハンド、右にドラッグでバックハンド"
+                return "ゲーム中は自分の結果を集中しましょう。左利きなので: 左にドラッグでフォアハンド、右にドラッグでバックハンド"
             }
         case .chinese:
             if isRightHanded {
-                return "由於你是右撇子：向左拖動為反手，向右拖動為正手"
+                return "比赛进行中，专注于你的結果。由於你是右撇子：向左拖動為反手，向右拖動為正手"
             } else {
-                return "由於你是左撇子：向左拖動為正手，向右拖動為反手"
+                return "比赛进行中，专注于你的結果。由於你是左撇子：向左拖動為正手，向右拖動為反手"
             }
         }
     }
