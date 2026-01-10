@@ -552,18 +552,21 @@ $$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- View for active matches
+-- SECURITY INVOKER ensures the view runs with the querying user's permissions and respects RLS
 CREATE OR REPLACE VIEW active_matches AS
 SELECT *
 FROM matches
 WHERE deleted_at IS NULL AND end_date IS NULL;
 
 -- View for completed matches
+-- SECURITY INVOKER ensures the view runs with the querying user's permissions and respects RLS
 CREATE OR REPLACE VIEW completed_matches AS
 SELECT *
 FROM matches
 WHERE deleted_at IS NULL AND end_date IS NOT NULL;
 
 -- View for match summary with stats
+-- SECURITY INVOKER ensures the view runs with the querying user's permissions and respects RLS
 CREATE OR REPLACE VIEW match_summary AS
 SELECT
     m.*,
@@ -576,6 +579,13 @@ LEFT JOIN games g ON g.match_id = m.id AND g.deleted_at IS NULL
 LEFT JOIN points p ON p.match_id = m.id AND p.deleted_at IS NULL
 WHERE m.deleted_at IS NULL
 GROUP BY m.id;
+
+-- Explicitly set views to SECURITY INVOKER mode (PostgreSQL 15+)
+-- This ensures views run with the querying user's permissions and respect RLS policies
+-- For PostgreSQL < 15, views are security invoker by default when created without SECURITY DEFINER
+ALTER VIEW active_matches SET (security_invoker = true);
+ALTER VIEW completed_matches SET (security_invoker = true);
+ALTER VIEW match_summary SET (security_invoker = true);
 
 -- Note: For ML training, query labels table directly with task-specific filters:
 -- Example: SELECT p.*, l.* FROM points p
