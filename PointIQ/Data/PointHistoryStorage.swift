@@ -86,7 +86,16 @@ class PointHistoryStorage {
             // Save to Supabase asynchronously
             Task {
                 do {
-                    try await SupabaseService.shared.savePoint(pointData)
+                    // Extract match and game IDs from point relationships
+                    guard let matchId = point.match?.id.uuidString,
+                          let gameId = point.game?.id.uuidString else {
+                        print("⚠️ Point missing match or game relationship, skipping Supabase upload")
+                        // Fallback to local storage
+                        saveToLocal(pointData)
+                        return
+                    }
+                    
+                    try await SupabaseService.shared.savePoint(pointData, matchId: matchId, gameId: gameId)
                     print("✅ Point saved to Supabase: \(pointData.id)")
                 } catch {
                     print("❌ Error saving to Supabase, falling back to local: \(error)")

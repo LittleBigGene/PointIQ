@@ -23,6 +23,11 @@ struct ContentView: View {
     @State private var showUploadError = false
     @State private var restoredMatchID: UUID? // Track which match we've restored points for
     @AppStorage("pointHistoryHeightRatio") private var pointHistoryHeightRatio: Double = 0.55
+    @State private var showAddToHistoryDialog = false
+    @State private var opponentNameInput: String = ""
+    @State private var matchNotesInput: String = ""
+    @State private var pendingResetAfterHistory = false
+    @State private var matchToResetAfterHistory: Match? = nil
     
     // Profile data for uploading
     @AppStorage("playerName") private var name: String = "YOU"
@@ -122,6 +127,30 @@ struct ContentView: View {
         }
     }
     
+    private func enterOpponentNameText(for language: Language) -> String {
+        switch language {
+        case .english: return "Enter Opponent Name"
+        case .japanese: return "相手の名前を入力"
+        case .chinese: return "輸入對手名稱"
+        }
+    }
+    
+    private func opponentNamePlaceholderText(for language: Language) -> String {
+        switch language {
+        case .english: return "Opponent name"
+        case .japanese: return "相手の名前"
+        case .chinese: return "對手名稱"
+        }
+    }
+    
+    private func saveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Save"
+        case .japanese: return "保存"
+        case .chinese: return "保存"
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
@@ -207,6 +236,15 @@ struct ContentView: View {
         }
         .alert(resetMatchText(for: selectedLanguage), isPresented: $showResetMatchConfirmation) {
             Button(cancelText(for: selectedLanguage), role: .cancel) { }
+            Button(addToHistoryText(for: selectedLanguage)) {
+                // Store match reference before showing dialog
+                matchToResetAfterHistory = currentMatch
+                // Pre-fill with existing opponent name if available
+                opponentNameInput = opponentName
+                matchNotesInput = currentMatch?.notes ?? ""
+                pendingResetAfterHistory = true
+                showAddToHistoryDialog = true
+            }
             Button(resetText(for: selectedLanguage), role: .destructive) {
                 resetMatch()
             }
@@ -221,6 +259,77 @@ struct ContentView: View {
             if let error = uploadError {
                 Text(failedToUploadText(for: selectedLanguage, error: error))
             }
+        }
+        .sheet(isPresented: $showAddToHistoryDialog) {
+            AddToHistorySheet(
+                opponentName: $opponentNameInput,
+                matchNotes: $matchNotesInput,
+                selectedLanguage: selectedLanguage,
+                onCancel: {
+                    opponentNameInput = ""
+                    matchNotesInput = ""
+                    pendingResetAfterHistory = false
+                    matchToResetAfterHistory = nil
+                    showAddToHistoryDialog = false
+                },
+                onSave: {
+                    // Match notes are required, so we only save if it's not empty
+                    guard !matchNotesInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        return
+                    }
+                    // Save the match reference before ending it
+                    let matchToReset = matchToResetAfterHistory ?? currentMatch
+                    let opponentNameForUpload = opponentNameInput.isEmpty ? opponentName : opponentNameInput
+                    
+                    // End the match first (sets endDate and saves)
+                    endCurrentMatch(
+                        opponentName: opponentNameInput.isEmpty ? nil : opponentNameInput,
+                        matchNotes: matchNotesInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                    
+                    // Ensure match is saved before uploading
+                    if let match = matchToReset {
+                        do {
+                            try modelContext.save()
+                            print("✅ Match saved to SwiftData before upload")
+                        } catch {
+                            print("❌ Error saving match to SwiftData: \(error)")
+                        }
+                        
+                        // Upload to Supabase if configured (background upload)
+                        // Upload AFTER endCurrentMatch so match has endDate set
+                        if SupabaseConfig.isConfigured {
+                            print("📤 Starting Supabase upload for match: \(match.id)")
+                            uploadMatchToSupabase(match: match, opponentName: opponentNameForUpload)
+                        } else {
+                            print("⚠️ Supabase upload skipped - not configured")
+                        }
+                    } else {
+                        print("⚠️ No match to upload")
+                    }
+                    
+                    opponentNameInput = ""
+                    matchNotesInput = ""
+                    showAddToHistoryDialog = false
+                    // If this was triggered from reset, clear current match state and start new match
+                    // Don't delete the match - it should remain in history
+                    if pendingResetAfterHistory {
+                        pendingResetAfterHistory = false
+                        matchToResetAfterHistory = nil
+                        // Clear current match state and start a new match
+                        currentGame = nil
+                        currentMatch = nil
+                        lastPoint = nil
+                        restoredMatchID = nil
+                        // Clear local point history storage
+                        PointHistoryStorage.shared.clearAllPoints()
+                        // Clear opponent information (player profile persists)
+                        clearOpponentInformation()
+                        // Start a new match
+                        startNewMatch()
+                    }
+                }
+            )
         }
         .overlay {
             if isUploadingMatch {
@@ -400,12 +509,32 @@ struct ContentView: View {
         try? modelContext.save()
     }
     
-    private func endCurrentMatch() {
-        currentGame?.endDate = Date()
-        currentMatch?.endDate = Date()
+    private func endCurrentMatch(opponentName: String? = nil, matchNotes: String? = nil) {
+        if let match = currentMatch {
+            // Set opponent name if provided
+            if let name = opponentName, !name.isEmpty {
+                match.opponentName = name
+            }
+            // Set match notes (notes) if provided
+            if let name = matchNotes, !name.isEmpty {
+                match.notes = name
+            }
+            // End current game if active
+            if let game = currentGame {
+                game.endDate = Date()
+            }
+            // End the match
+            match.endDate = Date()
+            
+            // Save the match before clearing currentMatch reference
+            do {
+                try modelContext.save()
+            } catch {
+                print("Error saving match to history: \(error)")
+            }
+        }
         currentGame = nil
         currentMatch = nil
-        try? modelContext.save()
     }
     
     private func logPoint(_ point: Point) {
@@ -454,6 +583,85 @@ struct ContentView: View {
         
         // Remove point from local storage by ID
         PointHistoryStorage.shared.removePoint(byID: pointID)
+    }
+    
+    private func uploadMatchToSupabase(match: Match, opponentName: String) {
+        // Check if Supabase is configured
+        guard SupabaseConfig.isConfigured else {
+            print("⚠️ Supabase not configured, skipping upload")
+            return
+        }
+        
+        // Force load relationships before uploading
+        let gamesCount = match.games?.count ?? 0
+        let pointsCount = match.points?.count ?? 0
+        
+        print("📤 Uploading match to Supabase:")
+        print("   Match ID: \(match.id)")
+        print("   Match Notes: \(match.notes ?? "nil")")
+        print("   Opponent Name: \(opponentName)")
+        print("   Games: \(gamesCount)")
+        print("   Points: \(pointsCount)")
+        print("   End Date: \(match.endDate?.description ?? "nil")")
+        
+        // Ensure match has endDate set (required for completed matches)
+        guard match.endDate != nil else {
+            print("❌ Match does not have endDate set, cannot upload")
+            return
+        }
+        
+        Task {
+            do {
+                print("📤 Step 1: Saving player profile...")
+                // 1. Save player profile
+                try await SupabaseService.shared.savePlayerProfile(
+                    name: name,
+                    grip: playerGrip,
+                    handedness: playerHandedness,
+                    blade: playerBlade,
+                    forehandRubber: playerForehandRubber,
+                    backhandRubber: playerBackhandRubber,
+                    eloRating: playerEloRating >= 1000 ? playerEloRating : nil,
+                    homeClub: playerHomeClub
+                )
+                print("✅ Player profile saved")
+                
+                // 2. Save opponent profile if opponent data exists
+                var opponentProfileId: String? = nil
+                if !opponentName.isEmpty {
+                    print("📤 Step 2: Saving opponent profile...")
+                    opponentProfileId = try await SupabaseService.shared.saveOpponentProfile(
+                        name: opponentName,
+                        grip: opponentGrip,
+                        handedness: opponentHandedness,
+                        blade: opponentBlade,
+                        forehandRubber: opponentForehandRubber,
+                        backhandRubber: opponentBackhandRubber,
+                        eloRating: opponentEloRating >= 1000 ? opponentEloRating : nil,
+                        homeClub: opponentHomeClub
+                    )
+                    print("✅ Opponent profile saved: \(opponentProfileId ?? "nil")")
+                } else {
+                    print("⏭️ Skipping opponent profile (no name)")
+                }
+                
+                // 3. Upload the match (with opponent profile reference if available)
+                print("📤 Step 3: Uploading match...")
+                try await SupabaseService.shared.uploadMatch(match, opponentProfileId: opponentProfileId)
+                
+                print("✅ Match successfully uploaded to Supabase: \(match.id)")
+            } catch {
+                print("❌ Error uploading match to Supabase:")
+                print("   Error: \(error)")
+                print("   Localized: \(error.localizedDescription)")
+                if let nsError = error as NSError? {
+                    print("   Domain: \(nsError.domain)")
+                    print("   Code: \(nsError.code)")
+                    print("   UserInfo: \(nsError.userInfo)")
+                }
+                // Don't show error to user for background uploads
+            }
+        }
     }
     
     private func shareAndResetMatch() {
@@ -515,9 +723,12 @@ struct ContentView: View {
         }
     }
     
-    private func resetMatch() {
-        // Delete the current match and all its associated data
-        if let match = currentMatch {
+    private func resetMatch(match: Match? = nil) {
+        // Use provided match or current match
+        let matchToDelete = match ?? currentMatch
+        
+        // Delete the match and all its associated data
+        if let match = matchToDelete {
             // Delete all games and points (cascade should handle this, but being explicit)
             if let games = match.games {
                 for game in games {
@@ -557,6 +768,122 @@ struct ContentView: View {
         UserDefaults.standard.removeObject(forKey: "opponentBackhandRubber")
         opponentEloRating = 1000 // Reset to default for unrated players
         UserDefaults.standard.removeObject(forKey: "opponentHomeClub")
+    }
+}
+
+// MARK: - Add to History Sheet
+
+struct AddToHistorySheet: View {
+    @Binding var opponentName: String
+    @Binding var matchNotes: String
+    let selectedLanguage: Language
+    let onCancel: () -> Void
+    let onSave: () -> Void
+    
+    @FocusState private var focusedField: Field?
+    
+    enum Field {
+        case opponentName
+        case matchNotes
+    }
+    
+    private func enterOpponentNameText(for language: Language) -> String {
+        switch language {
+        case .english: return "Enter Opponent Name"
+        case .japanese: return "相手の名前を入力"
+        case .chinese: return "輸入對手名稱"
+        }
+    }
+    
+    private func opponentNamePlaceholderText(for language: Language) -> String {
+        switch language {
+        case .english: return "Opponent name"
+        case .japanese: return "相手の名前"
+        case .chinese: return "對手名稱"
+        }
+    }
+    
+    private func matchNotesPlaceholderText(for language: Language) -> String {
+        switch language {
+        case .english: return "Match Notes"
+        case .japanese: return "試合メモ"
+        case .chinese: return "比賽筆記"
+        }
+    }
+    
+    private func matchNotesRequiredText(for language: Language) -> String {
+        switch language {
+        case .english: return "Match notes are required"
+        case .japanese: return "試合メモは必須です"
+        case .chinese: return "比賽筆記為必填"
+        }
+    }
+    
+    private var ismatchNotesValid: Bool {
+        !matchNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private func addToHistoryText(for language: Language) -> String {
+        switch language {
+        case .english: return "Add to History"
+        case .japanese: return "履歴に追加"
+        case .chinese: return "加入歷史"
+        }
+    }
+    
+    private func cancelText(for language: Language) -> String {
+        switch language {
+        case .english: return "Cancel"
+        case .japanese: return "キャンセル"
+        case .chinese: return "取消"
+        }
+    }
+    
+    private func saveText(for language: Language) -> String {
+        switch language {
+        case .english: return "Save"
+        case .japanese: return "保存"
+        case .chinese: return "保存"
+        }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(opponentNamePlaceholderText(for: selectedLanguage), text: $opponentName)
+                        .focused($focusedField, equals: .opponentName)
+                    
+                    TextField(matchNotesPlaceholderText(for: selectedLanguage), text: $matchNotes)
+                        .focused($focusedField, equals: .matchNotes)
+                } header: {
+                    Text(addToHistoryText(for: selectedLanguage))
+                } footer: {
+                    if !ismatchNotesValid && !matchNotes.isEmpty {
+                        Text(matchNotesRequiredText(for: selectedLanguage))
+                            .foregroundColor(.red)
+                    }
+                }
+            }
+            .navigationTitle(enterOpponentNameText(for: selectedLanguage))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(cancelText(for: selectedLanguage)) {
+                        onCancel()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saveText(for: selectedLanguage)) {
+                        onSave()
+                    }
+                    .disabled(!ismatchNotesValid)
+                }
+            }
+            .onAppear {
+                focusedField = .opponentName
+            }
+        }
     }
 }
 

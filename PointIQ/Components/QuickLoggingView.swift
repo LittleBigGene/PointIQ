@@ -585,14 +585,22 @@ struct QuickLoggingView: View {
                 Divider()
                     .padding(.vertical, InGameLayout.dividerPadding)
                 
-                // Third row: 4 columns - Opp Err counter, Opp Err button, Net/Edge button, Net/Edge counter
+                // Third row: 6 columns - Opp Err counter, Opp Err button, Bad SR counter, Bad SR button, Net/Edge counter, Net/Edge button
                 HStack(alignment: .center, spacing: InGameLayout.compactButtonSpacing) {
+                    // Opp Err & its counter
                     strokeSideCounter(count: countPoints(outcome: .opponentError))
                     inGameOutcomeButton(for: .opponentError, isCompact: true)
                         .frame(maxWidth: .infinity)
+                    
+                    // My Error & its counter
+                    strokeSideCounter(count: countPoints(outcome: .myError))
+                    inGameOutcomeButton(for: .myError, isCompact: true)
+                        .frame(maxWidth: .infinity)
+                    
+                    // Net/Edge & its counter
+                    strokeSideCounter(count: countPoints(outcome: .unlucky))
                     inGameOutcomeButton(for: .unlucky, isCompact: true)
                         .frame(maxWidth: .infinity)
-                    strokeSideCounter(count: countPoints(outcome: .unlucky))
                 }
             }
             .frame(maxWidth: .infinity)
