@@ -304,7 +304,7 @@ struct QuickLoggingView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .background(Color.secondary.opacity(0.05))
         } else {
             // Calculate dynamic spacer width: start with 13 emojis, reduce by 1 for each selected stroke
@@ -566,10 +566,10 @@ struct QuickLoggingView: View {
         static let vStackSpacing: CGFloat = 10
         static let counterSpacing: CGFloat = 36
         static let compactButtonSpacing: CGFloat = 10
-        static let dividerPadding: CGFloat = 10
+        static let dividerPadding: CGFloat = 6
         static let horizontalPadding: CGFloat = 20
-        static let topPadding: CGFloat = 20
-        static let bottomPadding: CGFloat = 40
+        static let topPadding: CGFloat = 8
+        static let bottomPadding: CGFloat = 20
     }
     
     private var inGameOutcomesView: some View {
