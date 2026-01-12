@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct HistoryView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
     
     private let topOffset: CGFloat = -40
@@ -21,7 +22,7 @@ struct HistoryView: View {
                     StatisticsSection(matches: matches)
                     
                     // Recent Matches Section
-                    RecentMatchesSection(matches: matches)
+                    RecentMatchesSection(matches: matches, modelContext: modelContext)
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -47,34 +48,35 @@ struct HistoryView: View {
 struct StatisticsSection: View {
     let matches: [Match]
     
-    private var totalMatches: Int {
-        matches.count
+    // Only include completed matches (those with an endDate)
+    private var completedMatches: [Match] {
+        matches.filter { $0.endDate != nil }
     }
     
-    private var completedMatches: Int {
-        matches.filter { $0.endDate != nil }.count
+    private var totalMatches: Int {
+        completedMatches.count
     }
     
     private var totalGamesWon: Int {
-        matches.reduce(0) { $0 + $1.gamesWon }
+        completedMatches.reduce(0) { $0 + $1.gamesWon }
     }
     
     private var totalGamesLost: Int {
-        matches.reduce(0) { $0 + $1.gamesLost }
+        completedMatches.reduce(0) { $0 + $1.gamesLost }
     }
     
     private var totalPointsWon: Int {
-        matches.reduce(0) { $0 + $1.pointsWon }
+        completedMatches.reduce(0) { $0 + $1.pointsWon }
     }
     
     private var totalPointsLost: Int {
-        matches.reduce(0) { $0 + $1.pointsLost }
+        completedMatches.reduce(0) { $0 + $1.pointsLost }
     }
     
     private var matchWinRate: Double {
-        guard completedMatches > 0 else { return 0 }
-        let wins = matches.filter { $0.winner == true }.count
-        return Double(wins) / Double(completedMatches) * 100
+        guard totalMatches > 0 else { return 0 }
+        let wins = completedMatches.filter { $0.winner == true }.count
+        return Double(wins) / Double(totalMatches) * 100
     }
     
     private var gameWinRate: Double {
@@ -103,14 +105,14 @@ struct StatisticsSection: View {
                 StatCard(
                     title: "Matches",
                     value: "\(totalMatches)",
-                    subtitle: "\(completedMatches) completed",
+                    subtitle: "\(totalMatches) completed",
                     color: .blue
                 )
                 
                 StatCard(
                     title: "Match Win Rate",
                     value: String(format: "%.1f%%", matchWinRate),
-                    subtitle: completedMatches > 0 ? "\(matches.filter { $0.winner == true }.count)W - \(matches.filter { $0.winner == false }.count)L" : "No matches",
+                    subtitle: totalMatches > 0 ? "\(completedMatches.filter { $0.winner == true }.count)W - \(completedMatches.filter { $0.winner == false }.count)L" : "No matches",
                     color: .green
                 )
                 
@@ -179,9 +181,12 @@ struct StatCard: View {
 
 struct RecentMatchesSection: View {
     let matches: [Match]
+    let modelContext: ModelContext
     
     private var recentMatches: [Match] {
-        Array(matches.prefix(10))
+        // Only include completed matches (those with an endDate)
+        let completedMatches = matches.filter { $0.endDate != nil }
+        return Array(completedMatches.prefix(10))
     }
     
     var body: some View {
@@ -207,8 +212,10 @@ struct RecentMatchesSection: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
             } else {
-                ForEach(recentMatches) { match in
-                    MatchRow(match: match)
+                VStack(spacing: 12) {
+                    ForEach(Array(recentMatches.enumerated()), id: \.element.id) { index, match in
+                        MatchRow(match: match, matchNumber: index, modelContext: modelContext)
+                    }
                 }
             }
         }
@@ -217,6 +224,47 @@ struct RecentMatchesSection: View {
 
 struct MatchRow: View {
     let match: Match
+    let matchNumber: Int
+    let modelContext: ModelContext
+    
+    @State private var showDeleteConfirmation = false
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    private func deleteText(for language: Language) -> String {
+        switch language {
+        case .english: return "Delete"
+        case .japanese: return "削除"
+        case .chinese: return "刪除"
+        }
+    }
+    
+    private func cancelText(for language: Language) -> String {
+        switch language {
+        case .english: return "Cancel"
+        case .japanese: return "キャンセル"
+        case .chinese: return "取消"
+        }
+    }
+    
+    private func deleteMatchText(for language: Language) -> String {
+        switch language {
+        case .english: return "Delete Match"
+        case .japanese: return "試合を削除"
+        case .chinese: return "刪除比賽"
+        }
+    }
+    
+    private func deleteMatchMessageText(for language: Language) -> String {
+        switch language {
+        case .english: return "Are you sure you want to delete this match? This action cannot be undone."
+        case .japanese: return "この試合を削除してもよろしいですか？この操作は元に戻せません。"
+        case .chinese: return "確定要刪除此比賽嗎？此操作無法復原。"
+        }
+    }
     
     private var matchDuration: String {
         guard let endDate = match.endDate else {
@@ -245,11 +293,14 @@ struct MatchRow: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let opponentName = match.opponentName, !opponentName.isEmpty {
-                        Text(opponentName)
+                    if let matchNotes = match.notes, !matchNotes.isEmpty {
+                        Text(matchNotes)
+                            .font(.headline)
+                    } else if let opponentName = match.opponentName, !opponentName.isEmpty {
+                        Text("Match \(matchNumber): \(opponentName)")
                             .font(.headline)
                     } else {
-                        Text("Match")
+                        Text("Match \(matchNumber)")
                             .font(.headline)
                     }
                     
@@ -260,26 +311,32 @@ struct MatchRow: View {
                 
                 Spacer()
                 
-                VStack(alignment: .trailing, spacing: 4) {
-                    if let winner = match.winner {
-                        HStack(spacing: 4) {
-                            Image(systemName: winner ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(winner ? .green : .red)
-                            Text(winner ? "Won" : "Lost")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(winner ? .green : .red)
+                HStack(spacing: 12) {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if let winner = match.winner {
+                            HStack(spacing: 4) {
+                                Image(systemName: winner ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundColor(winner ? .green : .red)
+                                Text(winner ? "Won" : "Lost")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(winner ? .green : .red)
+                            }
                         }
-                    } else {
-                        Text("Active")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
+                        
+                        Text(matchDuration)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                     
-                    Text(matchDuration)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Button(action: {
+                        showDeleteConfirmation = true
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                            .font(.system(size: 16))
+                            .padding(8)
+                    }
                 }
             }
             
@@ -320,6 +377,30 @@ struct MatchRow: View {
         .background(Color(.secondarySystemBackground))
         .cornerRadius(12)
         .padding(.horizontal)
+        .alert(deleteMatchText(for: selectedLanguage), isPresented: $showDeleteConfirmation) {
+            Button(cancelText(for: selectedLanguage), role: .cancel) { }
+            Button(deleteText(for: selectedLanguage), role: .destructive) {
+                deleteMatch()
+            }
+        } message: {
+            Text(deleteMatchMessageText(for: selectedLanguage))
+        }
+    }
+    
+    private func deleteMatch() {
+        // Delete all games and points (cascade should handle this, but being explicit)
+        if let games = match.games {
+            for game in games {
+                if let points = game.points {
+                    for point in points {
+                        modelContext.delete(point)
+                    }
+                }
+                modelContext.delete(game)
+            }
+        }
+        modelContext.delete(match)
+        try? modelContext.save()
     }
 }
 

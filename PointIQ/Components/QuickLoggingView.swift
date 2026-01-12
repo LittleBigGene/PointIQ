@@ -27,7 +27,7 @@ struct QuickLoggingView: View {
     @State private var showingConfirmation = false
     @State private var confirmationEmoji = ""
     @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
-    @AppStorage("legendMode") private var isPostGameMode: Bool = true
+    @AppStorage("legendMode") private var isPostGameMode: Bool = false
     @AppStorage("playerHandedness") private var playerHandedness: String = "Right-handed"
     
     private var selectedLanguage: Language {
@@ -304,7 +304,7 @@ struct QuickLoggingView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .background(Color.secondary.opacity(0.05))
         } else {
             // Calculate dynamic spacer width: start with 13 emojis, reduce by 1 for each selected stroke
@@ -566,10 +566,10 @@ struct QuickLoggingView: View {
         static let vStackSpacing: CGFloat = 10
         static let counterSpacing: CGFloat = 36
         static let compactButtonSpacing: CGFloat = 10
-        static let dividerPadding: CGFloat = 10
+        static let dividerPadding: CGFloat = 6
         static let horizontalPadding: CGFloat = 20
-        static let topPadding: CGFloat = 20
-        static let bottomPadding: CGFloat = 40
+        static let topPadding: CGFloat = 8
+        static let bottomPadding: CGFloat = 20
     }
     
     private var inGameOutcomesView: some View {
@@ -585,14 +585,22 @@ struct QuickLoggingView: View {
                 Divider()
                     .padding(.vertical, InGameLayout.dividerPadding)
                 
-                // Third row: 4 columns - Opp Err counter, Opp Err button, Net/Edge button, Net/Edge counter
+                // Third row: 6 columns - Opp Err counter, Opp Err button, Bad SR counter, Bad SR button, Net/Edge counter, Net/Edge button
                 HStack(alignment: .center, spacing: InGameLayout.compactButtonSpacing) {
+                    // Opp Err & its counter
                     strokeSideCounter(count: countPoints(outcome: .opponentError))
                     inGameOutcomeButton(for: .opponentError, isCompact: true)
                         .frame(maxWidth: .infinity)
+                    
+                    // My Error & its counter
+                    strokeSideCounter(count: countPoints(outcome: .myError))
+                    inGameOutcomeButton(for: .myError, isCompact: true)
+                        .frame(maxWidth: .infinity)
+                    
+                    // Net/Edge & its counter
+                    strokeSideCounter(count: countPoints(outcome: .unlucky))
                     inGameOutcomeButton(for: .unlucky, isCompact: true)
                         .frame(maxWidth: .infinity)
-                    strokeSideCounter(count: countPoints(outcome: .unlucky))
                 }
             }
             .frame(maxWidth: .infinity)

@@ -90,7 +90,7 @@ The schema consists of four main tables with proper relationships:
 | `forehand_rubber` | TEXT | Forehand rubber name/model |
 | `backhand_rubber` | TEXT | Backhand rubber name/model |
 | `elo_rating` | TEXT | Elo rating |
-| `club_name` | TEXT | Club name |
+| `home_club` | TEXT | Home club |
 | `metadata` | JSONB | Flexible storage for future features |
 | `created_at` | TIMESTAMPTZ | When the record was created |
 | `updated_at` | TIMESTAMPTZ | When the record was last updated |

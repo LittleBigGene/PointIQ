@@ -25,6 +25,13 @@ class SupabaseService {
         static let matches = "matches"
         static let games = "games"
         static let playerProfiles = "player_profiles"
+        static let labels = "labels"
+    }
+    
+    private enum LabelConstants {
+        static let sourceHuman = "human"
+        static let taskOutcome = "outcome"
+        static let dataSplitTrain = "train"
     }
     
     /// Cached ISO8601 date formatter for parsing timestamps from database
@@ -91,48 +98,73 @@ class SupabaseService {
         return client
     }
     
-    /// Converts a PointRow from database to PointData
-    private func pointData(from row: PointRow) -> PointData? {
-        guard let timestamp = Self.dateFormatter.date(from: row.timestamp) else {
+    /// Converts a PointRow with LabelRow from database to PointData
+    private func pointData(from pointRow: PointRow, labelRow: LabelRow?) -> PointData? {
+        guard let timestamp = Self.dateFormatter.date(from: pointRow.timestamp) else {
             return nil
         }
         
         return PointData(
-            id: row.id,
+            id: pointRow.id,
             timestamp: timestamp,
-            strokeTokens: row.strokeTokens,
-            outcome: row.outcome,
-            serveType: row.serveType,
-            receiveType: row.receiveType,
-            rallyTypes: row.rallyTypes,
-            gameNumber: row.gameNumber
+            strokeTokens: labelRow?.strokeTokens ?? [],
+            outcome: labelRow?.outcome ?? "unknown",
+            serveType: labelRow?.serveType,
+            receiveType: labelRow?.receiveType,
+            rallyTypes: labelRow?.rallyTypes ?? [],
+            gameNumber: pointRow.gameNumber
         )
     }
     
     /// Creates a PointInsert from PointData with optional match and game IDs
+    /// Only includes fact fields (no interpretations)
     private func pointInsert(
         from pointData: PointData,
-        matchId: String? = nil,
-        gameId: String? = nil
+        matchId: String,
+        gameId: String
     ) -> PointInsert {
-        // Derive point_winner, contact_made, and luck_factor from outcome
-        let (pointWinner, contactMade, luckFactor) = derivePointFields(from: pointData.outcome)
+        // Derive point_winner and contact_made from outcome
+        let (pointWinner, contactMade, _) = derivePointFields(from: pointData.outcome)
         
         return PointInsert(
-            id: pointData.id,
+            id: UUID().uuidString, // Generate new UUID for database
+            externalPointId: pointData.id, // Store app-generated ID
             timestamp: pointData.timestamp.ISO8601Format(),
-            strokeTokens: pointData.strokeTokens,
+            pointWinner: pointWinner,
+            contactMade: contactMade,
+            gameNumber: pointData.gameNumber ?? 1,
+            rawMetadata: [:], // Empty for now, can be populated later
+            createdAt: Self.currentTimestamp,
+            matchId: matchId,
+            gameId: gameId
+        )
+    }
+    
+    /// Creates a LabelInsert from PointData
+    /// Stores interpretation data (outcome, stroke types, etc.)
+    private func labelInsert(
+        from pointData: PointData,
+        pointId: String
+    ) -> LabelInsert {
+        let (_, _, luckFactor) = derivePointFields(from: pointData.outcome)
+        
+        return LabelInsert(
+            pointId: pointId,
+            labelSource: LabelConstants.sourceHuman,
+            humanLabelerId: nil, // For future multi-user support
+            aiModelId: nil,
+            labelTask: LabelConstants.taskOutcome,
+            isActive: true,
             outcome: pointData.outcome,
             serveType: pointData.serveType,
             receiveType: pointData.receiveType,
             rallyTypes: pointData.rallyTypes,
-            gameNumber: pointData.gameNumber,
-            pointWinner: pointWinner,
-            contactMade: contactMade,
+            strokeTokens: pointData.strokeTokens,
             luckFactor: luckFactor,
-            createdAt: Self.currentTimestamp,
-            matchId: matchId,
-            gameId: gameId
+            confidence: nil, // Human labels don't have confidence scores
+            dataSplit: LabelConstants.dataSplitTrain,
+            labelMetadata: [:],
+            createdAt: Self.currentTimestamp
         )
     }
     
@@ -167,7 +199,7 @@ class SupabaseService {
         forehandRubber: String,
         backhandRubber: String,
         eloRating: Int?,
-        clubName: String
+        homeClub: String
     ) -> PlayerProfileInsert {
         PlayerProfileInsert(
             userId: nil, // For future multi-user support
@@ -179,7 +211,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             createdAt: Self.currentTimestamp
         )
     }
@@ -195,7 +227,7 @@ class SupabaseService {
         forehandRubber: String,
         backhandRubber: String,
         eloRating: Int?,
-        clubName: String,
+        homeClub: String,
         onConflict: String,
         returnId: Bool = false
     ) async throws -> String? {
@@ -209,7 +241,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName
+            homeClub: homeClub
         )
         
         // Check if profile exists first (to avoid deferrable constraint issues)
@@ -249,7 +281,7 @@ class SupabaseService {
                 forehandRubber: forehandRubber,
                 backhandRubber: backhandRubber,
                 eloRating: eloRating,
-                clubName: clubName
+                homeClub: homeClub
             )
             
             try await client.from(Table.playerProfiles)
@@ -326,18 +358,18 @@ class SupabaseService {
     }
     
     /// Uploads all points for a game
+    /// Inserts both point facts and label interpretations
     private func uploadPoints(
         for game: Game,
         matchID: String,
         client: SupabaseClient
     ) async throws -> Int {
-        // Access points relationship - SwiftData may need to load it
         let points = game.points ?? []
         
         print("📊 Game \(game.gameNumber): Found \(points.count) points to upload")
         
-        if points.isEmpty {
-            print("⚠️ Game \(game.gameNumber): No points found (points relationship: \(game.points != nil ? "loaded" : "nil"))")
+        guard !points.isEmpty else {
+            print("⚠️ Game \(game.gameNumber): No points found")
             return 0
         }
         
@@ -346,66 +378,146 @@ class SupabaseService {
         
         for (index, point) in points.enumerated() {
             do {
-                let pointData = PointData(from: point, gameNumber: game.gameNumber)
-                let pointInsert = pointInsert(
-                    from: pointData,
-                    matchId: matchID,
-                    gameId: game.id.uuidString
+                try await uploadSinglePoint(
+                    point: point,
+                    gameNumber: game.gameNumber,
+                    matchID: matchID,
+                    gameID: game.id.uuidString,
+                    client: client,
+                    index: index + 1,
+                    total: points.count
                 )
-                
-                try await client.from(Table.points)
-                    .insert(pointInsert)
-                    .execute()
-                
                 count += 1
+                
                 if (index + 1) % 10 == 0 {
                     print("   ✅ Uploaded \(index + 1)/\(points.count) points for game \(game.gameNumber)")
                 }
             } catch {
                 errorCount += 1
-                print("❌ Error uploading point \(index + 1) for game \(game.gameNumber): \(error.localizedDescription)")
-                // Continue with next point instead of failing completely
+                logPointUploadError(error, point: point, gameNumber: game.gameNumber, index: index + 1)
             }
         }
         
-        if errorCount > 0 {
-            print("⚠️ Game \(game.gameNumber): \(errorCount) points failed to upload out of \(points.count)")
-        } else {
-            print("✅ Game \(game.gameNumber): Successfully uploaded all \(count) points")
+        logUploadSummary(gameNumber: game.gameNumber, count: count, errorCount: errorCount, total: points.count)
+        return count
+    }
+    
+    /// Uploads a single point (both fact and label) to Supabase
+    /// - Parameters:
+    ///   - point: SwiftData Point model instance
+    ///   - gameNumber: Game number for this point
+    ///   - matchID: Match UUID string
+    ///   - gameID: Game UUID string
+    ///   - client: Supabase client instance
+    ///   - index: Current point index (for logging)
+    ///   - total: Total number of points (for logging)
+    private func uploadSinglePoint(
+        point: Point,
+        gameNumber: Int,
+        matchID: String,
+        gameID: String,
+        client: SupabaseClient,
+        index: Int,
+        total: Int
+    ) async throws {
+        let pointData = PointData(from: point, gameNumber: gameNumber)
+        
+        let pointInsert = pointInsert(
+            from: pointData,
+            matchId: matchID,
+            gameId: gameID
+        )
+        
+        print("   📤 Uploading point \(index)/\(total): id=\(pointInsert.id), outcome=\(pointData.outcome)")
+        
+        let pointResponse: [PointRow] = try await client.from(Table.points)
+            .insert(pointInsert)
+            .select()
+            .execute()
+            .value
+        
+        guard let insertedPoint = pointResponse.first else {
+            throw SupabaseError.decodingError(NSError(
+                domain: "SupabaseService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to get inserted point ID"]
+            ))
         }
         
-        return count
+        let labelInsert = labelInsert(from: pointData, pointId: insertedPoint.id)
+        
+        try await client.from(Table.labels)
+            .insert(labelInsert)
+            .execute()
+    }
+    
+    /// Logs point upload error details
+    private func logPointUploadError(_ error: Error, point: Point, gameNumber: Int, index: Int) {
+        print("❌ Error uploading point \(index) for game \(gameNumber):")
+        print("   Point ID: \(point.uniqueID)")
+        print("   Error: \(error)")
+        print("   Localized: \(error.localizedDescription)")
+        if let nsError = error as NSError? {
+            print("   Domain: \(nsError.domain)")
+            print("   Code: \(nsError.code)")
+            print("   UserInfo: \(nsError.userInfo)")
+        }
+    }
+    
+    /// Logs upload summary
+    private func logUploadSummary(gameNumber: Int, count: Int, errorCount: Int, total: Int) {
+        if errorCount > 0 {
+            print("⚠️ Game \(gameNumber): \(errorCount) points failed to upload out of \(total)")
+        } else {
+            print("✅ Game \(gameNumber): Successfully uploaded all \(count) points")
+        }
     }
     #endif
     
     // MARK: - Point Data Operations
     
     /// Save a point to Supabase
-    func savePoint(_ pointData: PointData) async throws {
+    /// Note: This method requires matchId and gameId. Use uploadMatch for complete match uploads.
+    func savePoint(_ pointData: PointData, matchId: String, gameId: String) async throws {
         #if canImport(Supabase)
         let client = try requireClient()
-        let insert = pointInsert(from: pointData)
         
-        try await client.from(Table.points)
-            .insert(insert)
+        let pointInsert = pointInsert(from: pointData, matchId: matchId, gameId: gameId)
+        let pointResponse: [PointRow] = try await client.from(Table.points)
+            .insert(pointInsert)
+            .select()
+            .execute()
+            .value
+        
+        guard let insertedPoint = pointResponse.first else {
+            throw SupabaseError.decodingError(NSError(
+                domain: "SupabaseService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to get inserted point ID"]
+            ))
+        }
+        
+        let labelInsert = labelInsert(from: pointData, pointId: insertedPoint.id)
+        try await client.from(Table.labels)
+            .insert(labelInsert)
             .execute()
         #else
         throw SupabaseError.sdkNotAvailable
         #endif
     }
     
-    /// Load all points from Supabase
+    /// Load all points from Supabase with their labels
     func loadAllPoints() async throws -> [PointData] {
         #if canImport(Supabase)
         let client = try requireClient()
         
-        let response: [PointRow] = try await client.from(Table.points)
+        let points: [PointRow] = try await client.from(Table.points)
             .select()
             .order("timestamp", ascending: false)
             .execute()
             .value
         
-        return response.compactMap { pointData(from: $0) }
+        return try await loadPointsWithLabels(points: points, client: client)
         #else
         throw SupabaseError.sdkNotAvailable
         #endif
@@ -439,22 +551,48 @@ class SupabaseService {
         #endif
     }
     
-    /// Load points for a specific match
+    /// Load points for a specific match with their labels
     func loadPointsForMatch(matchID: String) async throws -> [PointData] {
         #if canImport(Supabase)
         let client = try requireClient()
         
-        let response: [PointRow] = try await client.from(Table.points)
+        let points: [PointRow] = try await client.from(Table.points)
             .select()
             .eq("match_id", value: matchID)
             .order("timestamp", ascending: false)
             .execute()
             .value
         
-        return response.compactMap { pointData(from: $0) }
+        return try await loadPointsWithLabels(points: points, client: client)
         #else
         throw SupabaseError.sdkNotAvailable
         #endif
+    }
+    
+    /// Helper method to load labels for points and combine them into PointData
+    /// - Parameters:
+    ///   - points: Array of PointRow records from the database
+    ///   - client: Supabase client instance
+    /// - Returns: Array of PointData with label interpretations attached
+    private func loadPointsWithLabels(points: [PointRow], client: SupabaseClient) async throws -> [PointData] {
+        guard !points.isEmpty else { return [] }
+        
+        let pointIds = points.map { $0.id }
+        let labels: [LabelRow] = try await client.from(Table.labels)
+            .select()
+            .in("point_id", values: pointIds)
+            .eq("is_active", value: true)
+            .eq("label_task", value: LabelConstants.taskOutcome)
+            .execute()
+            .value
+        
+        // Create lookup dictionary: pointId -> LabelRow
+        let labelsByPointId = Dictionary(grouping: labels, by: { $0.pointId }).compactMapValues { $0.first }
+        
+        // Combine point facts with their label interpretations
+        return points.compactMap { point in
+            pointData(from: point, labelRow: labelsByPointId[point.id])
+        }
     }
     
     // MARK: - Match Operations
@@ -470,18 +608,29 @@ class SupabaseService {
             id: matchID,
             startDate: match.startDate.ISO8601Format(),
             endDate: match.endDate?.ISO8601Format(),
-            opponentName: match.opponentName,
             opponentProfileId: opponentProfileId,
             notes: match.notes,
             bestOf: match.bestOf,
             createdAt: Self.currentTimestamp
         )
         
-        try await client.from(Table.matches)
-            .insert(matchInsert)
-            .execute()
-        
-        print("✅ Match uploaded: \(matchID)")
+        do {
+            try await client.from(Table.matches)
+                .insert(matchInsert)
+                .execute()
+            
+            print("✅ Match uploaded successfully: \(matchID)")
+        } catch {
+            print("❌ Failed to upload match to Supabase:")
+            print("   Match ID: \(matchID)")
+            print("   Error: \(error)")
+            if let nsError = error as NSError? {
+                print("   Domain: \(nsError.domain)")
+                print("   Code: \(nsError.code)")
+                print("   UserInfo: \(nsError.userInfo)")
+            }
+            throw error // Re-throw to be caught by caller
+        }
         
         // 2. Upload games and their points
         guard let games = match.games else {
@@ -504,42 +653,48 @@ class SupabaseService {
             totalGamesUploaded += 1
             
             // Upload points for this game
-            // Note: Access points property to ensure SwiftData loads the relationship
-            let pointsCount = game.points?.count ?? 0
-            print("   📍 Game \(game.gameNumber) has \(pointsCount) points in relationship")
+            // Force load points relationship by accessing it
+            let gamePoints = game.points ?? []
+            let pointsCount = gamePoints.count
+            print("   📍 Game \(game.gameNumber) has \(pointsCount) points in game.points relationship")
+            print("   📍 Match has \(matchPointsCount) total points")
             
-            // If game.points is empty but match has points, try to filter match points by game
-            if pointsCount == 0 && matchPointsCount > 0 {
+            // Try uploading from game.points first
+            if pointsCount > 0 {
+                print("   📤 Uploading \(pointsCount) points from game.points relationship...")
+                totalPointsUploaded += try await uploadPoints(for: game, matchID: matchID, client: client)
+            } else if matchPointsCount > 0 {
+                // Fallback: try to get points from match.points and filter by game
                 print("   ⚠️ Game \(game.gameNumber) has no points in relationship, checking match.points...")
                 if let matchPoints = match.points {
-                    let gamePoints = matchPoints.filter { point in
-                        // Try to match points to this game by checking if point.game matches
+                    let filteredGamePoints = matchPoints.filter { point in
                         point.game?.id == game.id
                     }
-                    print("   📍 Found \(gamePoints.count) points for game \(game.gameNumber) via match.points")
+                    print("   📍 Found \(filteredGamePoints.count) points for game \(game.gameNumber) via match.points")
                     
-                    // Upload these points
-                    for point in gamePoints {
+                    // Upload these points (both point fact and label)
+                    for (index, point) in filteredGamePoints.enumerated() {
                         do {
-                            let pointData = PointData(from: point, gameNumber: game.gameNumber)
-                            let pointInsert = pointInsert(
-                                from: pointData,
-                                matchId: matchID,
-                                gameId: game.id.uuidString
+                            try await uploadSinglePoint(
+                                point: point,
+                                gameNumber: game.gameNumber,
+                                matchID: matchID,
+                                gameID: game.id.uuidString,
+                                client: client,
+                                index: index + 1,
+                                total: filteredGamePoints.count
                             )
-                            
-                            try await client.from(Table.points)
-                                .insert(pointInsert)
-                                .execute()
-                            
                             totalPointsUploaded += 1
+                            print("   ✅ Point \(index + 1) uploaded successfully")
                         } catch {
-                            print("❌ Error uploading point: \(error.localizedDescription)")
+                            logPointUploadError(error, point: point, gameNumber: game.gameNumber, index: index + 1)
                         }
                     }
+                } else {
+                    print("   ⚠️ match.points is nil")
                 }
             } else {
-                totalPointsUploaded += try await uploadPoints(for: game, matchID: matchID, client: client)
+                print("   ⚠️ No points found for game \(game.gameNumber)")
             }
         }
         
@@ -586,7 +741,7 @@ class SupabaseService {
         forehandRubber: String = "",
         backhandRubber: String = "",
         eloRating: Int? = nil,
-        clubName: String = ""
+        homeClub: String = ""
     ) async throws {
         #if canImport(Supabase)
         _ = try await saveProfile(
@@ -598,7 +753,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             onConflict: "user_id,profile_type",
             returnId: false
         )
@@ -617,7 +772,7 @@ class SupabaseService {
         forehandRubber: String = "",
         backhandRubber: String = "",
         eloRating: Int? = nil,
-        clubName: String = ""
+        homeClub: String = ""
     ) async throws -> String {
         #if canImport(Supabase)
         guard let profileId = try await saveProfile(
@@ -629,7 +784,7 @@ class SupabaseService {
             forehandRubber: forehandRubber,
             backhandRubber: backhandRubber,
             eloRating: eloRating,
-            clubName: clubName,
+            homeClub: homeClub,
             onConflict: "user_id,profile_type,name",
             returnId: true
         ) else {
@@ -698,35 +853,65 @@ enum SupabaseError: LocalizedError {
 // Insert models (for writing to database)
 private struct PointInsert: Encodable {
     let id: String
+    let externalPointId: String?
     let timestamp: String
-    let strokeTokens: [String]
-    let outcome: String
-    let serveType: String?
-    let receiveType: String?
-    let rallyTypes: [String]
-    let gameNumber: Int?
     let pointWinner: String
     let contactMade: Bool
-    let luckFactor: String?
+    let gameNumber: Int
+    let rawMetadata: [String: String] // JSONB - simplified to String values for now
     let createdAt: String
-    let matchId: String?
-    let gameId: String?
+    let matchId: String
+    let gameId: String
     
     enum CodingKeys: String, CodingKey {
         case id
+        case externalPointId = "external_point_id"
         case timestamp
-        case strokeTokens = "stroke_tokens"
+        case pointWinner = "point_winner"
+        case contactMade = "contact_made"
+        case gameNumber = "game_number"
+        case rawMetadata = "raw_metadata"
+        case createdAt = "created_at"
+        case matchId = "match_id"
+        case gameId = "game_id"
+    }
+}
+
+private struct LabelInsert: Encodable {
+    let pointId: String
+    let labelSource: String
+    let humanLabelerId: String?
+    let aiModelId: String?
+    let labelTask: String
+    let isActive: Bool
+    let outcome: String?
+    let serveType: String?
+    let receiveType: String?
+    let rallyTypes: [String]
+    let strokeTokens: [String]
+    let luckFactor: String?
+    let confidence: Double?
+    let dataSplit: String
+    let labelMetadata: [String: String] // JSONB - simplified to String values for now
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case pointId = "point_id"
+        case labelSource = "label_source"
+        case humanLabelerId = "human_labeler_id"
+        case aiModelId = "ai_model_id"
+        case labelTask = "label_task"
+        case isActive = "is_active"
         case outcome
         case serveType = "serve_type"
         case receiveType = "receive_type"
         case rallyTypes = "rally_types"
-        case gameNumber = "game_number"
-        case pointWinner = "point_winner"
-        case contactMade = "contact_made"
+        case strokeTokens = "stroke_tokens"
         case luckFactor = "luck_factor"
+        case confidence
+        case dataSplit = "data_split"
+        case labelMetadata = "label_metadata"
         case createdAt = "created_at"
-        case matchId = "match_id"
-        case gameId = "game_id"
     }
 }
 
@@ -734,7 +919,6 @@ private struct MatchInsert: Encodable {
     let id: String
     let startDate: String
     let endDate: String?
-    let opponentName: String?
     let opponentProfileId: String?
     let notes: String?
     let bestOf: Int
@@ -744,7 +928,6 @@ private struct MatchInsert: Encodable {
         case id
         case startDate = "start_date"
         case endDate = "end_date"
-        case opponentName = "opponent_name"
         case opponentProfileId = "opponent_profile_id"
         case notes
         case bestOf = "best_of"
@@ -775,32 +958,66 @@ private struct GameInsert: Encodable {
 // Read models (for reading from database)
 private struct PointRow: Codable {
     let id: String
+    let externalPointId: String?
     let timestamp: String
-    let strokeTokens: [String]
-    let outcome: String
-    let serveType: String?
-    let receiveType: String?
-    let rallyTypes: [String]
-    let gameNumber: Int?
-    let pointWinner: String?
-    let contactMade: Bool?
-    let luckFactor: String?
-    let matchId: String?
+    let pointWinner: String
+    let contactMade: Bool
+    let gameNumber: Int
+    let rawMetadata: [String: String]? // Simplified for now
+    let matchId: String
+    let gameId: String
     let createdAt: String?
     
     enum CodingKeys: String, CodingKey {
         case id
+        case externalPointId = "external_point_id"
         case timestamp
-        case strokeTokens = "stroke_tokens"
+        case pointWinner = "point_winner"
+        case contactMade = "contact_made"
+        case gameNumber = "game_number"
+        case rawMetadata = "raw_metadata"
+        case matchId = "match_id"
+        case gameId = "game_id"
+        case createdAt = "created_at"
+    }
+}
+
+private struct LabelRow: Codable {
+    let id: String
+    let pointId: String
+    let labelSource: String
+    let humanLabelerId: String?
+    let aiModelId: String?
+    let labelTask: String
+    let isActive: Bool
+    let outcome: String?
+    let serveType: String?
+    let receiveType: String?
+    let rallyTypes: [String]
+    let strokeTokens: [String]
+    let luckFactor: String?
+    let confidence: Double?
+    let dataSplit: String
+    let labelMetadata: [String: String]? // Simplified for now
+    let createdAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case pointId = "point_id"
+        case labelSource = "label_source"
+        case humanLabelerId = "human_labeler_id"
+        case aiModelId = "ai_model_id"
+        case labelTask = "label_task"
+        case isActive = "is_active"
         case outcome
         case serveType = "serve_type"
         case receiveType = "receive_type"
         case rallyTypes = "rally_types"
-        case gameNumber = "game_number"
-        case pointWinner = "point_winner"
-        case contactMade = "contact_made"
+        case strokeTokens = "stroke_tokens"
         case luckFactor = "luck_factor"
-        case matchId = "match_id"
+        case confidence
+        case dataSplit = "data_split"
+        case labelMetadata = "label_metadata"
         case createdAt = "created_at"
     }
 }
@@ -815,7 +1032,7 @@ private struct PlayerProfileInsert: Encodable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     let createdAt: String
     
     enum CodingKeys: String, CodingKey {
@@ -828,7 +1045,7 @@ private struct PlayerProfileInsert: Encodable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
         case createdAt = "created_at"
     }
 }
@@ -840,7 +1057,7 @@ private struct PlayerProfileUpdate: Encodable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     
     enum CodingKeys: String, CodingKey {
         case grip
@@ -849,7 +1066,7 @@ private struct PlayerProfileUpdate: Encodable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
     }
 }
 
@@ -864,7 +1081,7 @@ private struct PlayerProfileRow: Codable {
     let forehandRubber: String
     let backhandRubber: String
     let eloRating: Int?
-    let clubName: String
+    let homeClub: String
     let createdAt: String
     let updatedAt: String?
     let deletedAt: String?
@@ -880,7 +1097,7 @@ private struct PlayerProfileRow: Codable {
         case forehandRubber = "forehand_rubber"
         case backhandRubber = "backhand_rubber"
         case eloRating = "elo_rating"
-        case clubName = "club_name"
+        case homeClub = "home_club"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case deletedAt = "deleted_at"
