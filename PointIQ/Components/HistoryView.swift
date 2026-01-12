@@ -11,18 +11,88 @@ import SwiftData
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Match.startDate, order: .reverse) private var matches: [Match]
+    @ObservedObject private var subscriptionService = SubscriptionService.shared
+    @State private var showUpgradeView = false
+    @AppStorage("legendLanguage") private var selectedLanguageRaw: String = Language.english.rawValue
     
     private let topOffset: CGFloat = -40
+    private let freeMatchLimit = 5
+    
+    private var selectedLanguage: Language {
+        Language(rawValue: selectedLanguageRaw) ?? .english
+    }
+    
+    // Limit matches based on subscription tier
+    private var displayMatches: [Match] {
+        guard let limit = subscriptionService.currentTier.matchLimit else {
+            // Unlimited
+            return matches
+        }
+        return Array(matches.prefix(limit))
+    }
+    
+    private var shouldShowUpgradeBanner: Bool {
+        guard let limit = subscriptionService.currentTier.matchLimit else {
+            // Unlimited tier - no banner needed
+            return false
+        }
+        return matches.count > limit
+    }
+    
+    private func upgradeText(for language: Language) -> String {
+        switch language {
+        case .english: return "Upgrade to Premium"
+        case .japanese: return "プレミアムにアップグレード"
+        case .chinese: return "升級至高級版"
+        }
+    }
+    
+    private func limitedHistoryText(for language: Language) -> String {
+        let currentLimit = subscriptionService.currentTier.matchLimit ?? 0
+        switch language {
+        case .english:
+            if subscriptionService.currentTier == .free {
+                return "Showing last \(currentLimit) matches. Upgrade for more history."
+            } else {
+                return "Showing \(currentLimit) matches. Upgrade for unlimited history."
+            }
+        case .japanese:
+            if subscriptionService.currentTier == .free {
+                return "最後の\(currentLimit)試合を表示中。より多くの履歴のためアップグレードしてください。"
+            } else {
+                return "\(currentLimit)試合を表示中。無制限履歴のためアップグレードしてください。"
+            }
+        case .chinese:
+            if subscriptionService.currentTier == .free {
+                return "顯示最近\(currentLimit)場比賽。升級以獲得更多歷史記錄。"
+            } else {
+                return "顯示\(currentLimit)場比賽。升級以獲得無限歷史記錄。"
+            }
+        }
+    }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
+                    // Upgrade Banner (if over current tier limit)
+                    if shouldShowUpgradeBanner {
+                        UpgradeBanner(
+                            text: limitedHistoryText(for: selectedLanguage),
+                            upgradeText: upgradeText(for: selectedLanguage),
+                            onUpgrade: {
+                                showUpgradeView = true
+                            }
+                        )
+                        .padding(.horizontal)
+                        .padding(.top, 10)
+                    }
+                    
                     // Overall Statistics Section
-                    StatisticsSection(matches: matches)
+                    StatisticsSection(matches: displayMatches)
                     
                     // Recent Matches Section
-                    RecentMatchesSection(matches: matches, modelContext: modelContext)
+                    RecentMatchesSection(matches: displayMatches, modelContext: modelContext)
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -38,8 +108,73 @@ struct HistoryView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                 }
+                
+                // Premium badge or upgrade button
+                if !subscriptionService.isPremium {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            showUpgradeView = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "crown.fill")
+                                    .font(.caption)
+                                Text(upgradeText(for: selectedLanguage))
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.yellow)
+                        }
+                    }
+                } else {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "crown.fill")
+                                .font(.caption)
+                            Text("Premium")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.yellow)
+                    }
+                }
+            }
+            .sheet(isPresented: $showUpgradeView) {
+                PremiumUpgradeView()
             }
         }
+        .task {
+            await subscriptionService.checkPremiumStatus()
+        }
+    }
+}
+
+struct UpgradeBanner: View {
+    let text: String
+    let upgradeText: String
+    let onUpgrade: () -> Void
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(text)
+                    .font(.subheadline)
+                    .foregroundColor(.primary)
+            }
+            
+            Spacer()
+            
+            Button(action: onUpgrade) {
+                Text(upgradeText)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor)
+                    .cornerRadius(8)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(12)
     }
 }
 
