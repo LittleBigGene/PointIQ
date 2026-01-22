@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PointIQ Support</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        section {
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        h3 {
+            color: #555;
+            font-size: 1.3em;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        .faq-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .faq-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .faq-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        ul, ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .contact-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+        }
+
+        .contact-box a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .contact-box a:hover {
+            text-decoration: underline;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-top: 3px solid #667eea;
+        }
+
+        .feature-card strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e9ecef;
+        }
+
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            .content {
+                padding: 25px 20px;
+            }
+
+            .feature-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏓 PointIQ Support</h1>
+            <p>Your personal performance intelligence system for table tennis</p>
+        </header>
+
+        <div class="content">
+            <section id="about">
+                <h2>About PointIQ</h2>
+                <p>PointIQ is an iOS app designed for <strong>table tennis players</strong> to track matches, log strokes, and gain meaningful insights into their game. The app focuses on fast, in-game usability while building a rich data set for post-match analysis and long-term improvement.</p>
+                
+                <div class="feature-list">
+                    <div class="feature-card">
+                        <strong>🏓 Live Match Scoreboard</strong>
+                        Track points in real time with table-tennis-specific rules and flows.
+                    </div>
+                    <div class="feature-card">
+                        <strong>✍️ Stroke Logging</strong>
+                        Log strokes during or after rallies with an intuitive taxonomy.
+                    </div>
+                    <div class="feature-card">
+                        <strong>📊 Match History & Stats</strong>
+                        Review past matches, stroke distributions, and performance trends.
+                    </div>
+                    <div class="feature-card">
+                        <strong>☁️ Cloud Sync</strong>
+                        Secure authentication and cloud storage with Supabase.
+                    </div>
+                </div>
+            </section>
+
+            <section id="faq">
+                <h2>Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <strong>How do I get started with PointIQ?</strong>
+                    <p>Simply download the app from the App Store, create an account, and start tracking your matches! The app is designed to be intuitive and fast to use during real matches.</p>
+                </div>
+
+                <div class="faq-item">
+                    <strong>How does cloud sync work?</strong>
+                    <p>PointIQ uses Supabase for secure cloud storage. Your match data is automatically synced when you're online, and stored locally for offline access. All data is encrypted and protected with Row Level Security (RLS).</p>
+                </div>
+
+                <div class="faq-item">
+                    <strong>Can I use the app offline?</strong>
+                    <p>Yes! PointIQ stores data locally and will sync to the cloud when you're back online. You can track matches and log strokes even without an internet connection.</p>
+                </div>
+
+                <div class="faq-item">
+                    <strong>What stroke types can I log?</strong>
+                    <p>The app supports a comprehensive taxonomy of strokes including loops, pushes, blocks, chops, and more. You can log strokes during or after rallies for detailed analysis.</p>
+                </div>
+
+                <div class="faq-item">
+                    <strong>Is my data private and secure?</strong>
+                    <p>Absolutely. PointIQ collects only the data required for core functionality. All data is protected with Row Level Security, and users can only access their own matches and logs. No sensitive secrets are stored in the client.</p>
+                </div>
+
+                <div class="faq-item">
+                    <strong>How do I view my match history and statistics?</strong>
+                    <p>Navigate to the History tab in the app to review past matches, stroke distributions, and performance trends. The app provides detailed analytics to help you improve your game.</p>
+                </div>
+            </section>
+
+            <section id="troubleshooting">
+                <h2>Troubleshooting</h2>
+                
+                <div class="faq-item">
+                    <strong>I'm seeing "Supabase not configured" warning</strong>
+                    <ul>
+                        <li>Make sure you've updated Supabase credentials in the app settings</li>
+                        <li>Verify the URL and key are correct (no extra spaces)</li>
+                        <li>Check your internet connection</li>
+                    </ul>
+                </div>
+
+                <div class="faq-item">
+                    <strong>Data is not syncing to the cloud</strong>
+                    <ul>
+                        <li>Check your internet connection</li>
+                        <li>Verify your Supabase credentials are correct</li>
+                        <li>Ensure you're signed in to your account</li>
+                        <li>Data will sync automatically when connection is restored</li>
+                    </ul>
+                </div>
+
+                <div class="faq-item">
+                    <strong>The app crashes or behaves unexpectedly</strong>
+                    <ul>
+                        <li>Make sure you're running the latest version of the app</li>
+                        <li>Try force-closing and reopening the app</li>
+                        <li>If the issue persists, contact support with details about what you were doing when it occurred</li>
+                    </ul>
+                </div>
+
+                <div class="faq-item">
+                    <strong>I can't log strokes during a match</strong>
+                    <ul>
+                        <li>Ensure you're in an active match</li>
+                        <li>Check that the match hasn't ended</li>
+                        <li>Try restarting the match if needed</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="contact">
+                <h2>Contact & Support</h2>
+                <div class="contact-box">
+                    <p>Need help? We're here to assist you!</p>
+                    <ul style="margin-top: 15px;">
+                        <li><strong>GitHub Issues:</strong> Report bugs or request features on our <a href="https://github.com/genecai/PointIQ/issues" target="_blank">GitHub repository</a></li>
+                        <li><strong>Email:</strong> For direct support, please open an issue on GitHub or contact us through the app</li>
+                        <li><strong>Feedback:</strong> We welcome your ideas and feedback to make PointIQ better!</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="privacy">
+                <h2>Privacy & Data</h2>
+                <p>PointIQ collects only the data required to provide its core functionality:</p>
+                <ul>
+                    <li>User account information</li>
+                    <li>Match and stroke data created by the user</li>
+                </ul>
+                <p style="margin-top: 15px;">All data is stored securely with Row Level Security (RLS) policies. Users can only access their own data. For full details, please refer to the app's <a href="https://github.com/genecai/PointIQ/blob/main/PRIVACY.md" target="_blank">Privacy Policy</a>.</p>
+            </section>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 PointIQ. All rights reserved.</p>
+            <p style="margin-top: 10px;">
+                <a href="https://github.com/genecai/PointIQ" target="_blank">View on GitHub</a> | 
+                <a href="https://github.com/genecai/PointIQ/issues" target="_blank">Report an Issue</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
